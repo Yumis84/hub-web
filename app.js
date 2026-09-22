@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const cfg=window.HUB_CONFIG,msg=document.querySelector("#message");
-const FRONTEND_VERSION="auth-fix-9";
+const FRONTEND_VERSION="auth-fix-10";
 window.addEventListener("error",e=>{const m=document.querySelector("#bootstrapMessage");if(m)m.textContent="JS ERROR: "+(e.message||"unknown")+" ["+FRONTEND_VERSION+"]"});
 window.addEventListener("unhandledrejection",e=>{const m=document.querySelector("#bootstrapMessage");if(m)m.textContent="JS PROMISE ERROR: "+(e.reason?.message||String(e.reason))+" ["+FRONTEND_VERSION+"]"});
 if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey){msg.textContent="Не настроена публичная конфигурация Hub.";throw new Error("Missing HUB_CONFIG")}
