@@ -13,5 +13,5 @@ try{
  const g=await fetch(window.HUB_CONFIG.supabaseUrl+"/functions/v1/mcp-gateway/rpc",{method:"POST",headers:{Authorization:"Bearer "+tok.access_token,apikey:window.HUB_CONFIG.supabasePublishableKey,"Content-Type":"application/json"},body:JSON.stringify({name:"agent_list",arguments:{}})});
  const raw=await g.text();let data;try{data=JSON.parse(raw)}catch{throw new Error("Gateway non-JSON "+g.status+": "+raw.slice(0,160))}
  if(!g.ok||data.error)throw new Error(data.error||("Gateway HTTP "+g.status));
- $("#status").hidden=true;$("#ok").hidden=false;$("#result").textContent="PASS — OAuth token принят Hub Gateway; RLS вернул только разрешённый список агентов ("+(data.result?.length??0)+").";
+ if((data.result?.length??0)!==1)throw new Error("Delegated boundary FAIL: OAuth client должен видеть ровно одного привязанного агента, получено "+(data.result?.length??0));$("#status").hidden=true;$("#ok").hidden=false;$("#result").textContent="PASS — OAuth token принят; active agent_connection найден через RLS; доступ ограничен одним привязанным агентом.";
 }catch(e){fail(e.message||String(e))}
