@@ -1,16 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const cfg=window.HUB_CONFIG;
-const msg=document.querySelector("#message");
+const cfg=window.HUB_CONFIG,msg=document.querySelector("#message");
 if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey){msg.textContent="Не настроена публичная конфигурация Hub.";throw new Error("Missing HUB_CONFIG")}
-const supabase=createClient(cfg.supabaseUrl,cfg.supabasePublishableKey);
-const HUB_WEB_URL="https://yumis84.github.io/hub-web/";
-let mode="login";
-const $=s=>document.querySelector(s), form=$("#form"), submit=$("#submit"), resend=$("#resend");
+const supabase=createClient(cfg.supabaseUrl,cfg.supabasePublishableKey),HUB_WEB_URL="https://yumis84.github.io/hub-web/",MCP_URL=cfg.supabaseUrl+"/functions/v1/mcp-gateway/mcp";
+let mode="login";const $=s=>document.querySelector(s),form=$("#form"),submit=$("#submit"),resend=$("#resend");
 function setMode(next){mode=next;$("#tabLogin").classList.toggle("active",mode==="login");$("#tabSignup").classList.toggle("active",mode==="signup");$("#nameWrap").hidden=mode!=="signup";submit.textContent=mode==="login"?"Войти":"Создать аккаунт";resend.hidden=true;msg.textContent="";$("#password").autocomplete=mode==="login"?"current-password":"new-password"}
 $("#tabLogin").onclick=()=>setMode("login");$("#tabSignup").onclick=()=>setMode("signup");
 function render(session){const u=session?.user;$("#auth").hidden=!!u;$("#account").hidden=!u;if(u){$("#userEmail").textContent=u.email??"—";$("#userId").textContent=u.id}}
+async function mcpCall(name,args={}){const{data:{session}}=await supabase.auth.getSession();if(!session)throw new Error("Нет активной сессии");const body={jsonrpc:"2.0",id:crypto.randomUUID(),method:"tools/call",params:{name,arguments:args}};const r=await fetch(MCP_URL,{method:"POST",headers:{"Authorization":"Bearer "+session.access_token,"Content-Type":"application/json","Accept":"application/json, text/event-stream"},body:JSON.stringify(body)});if(!r.ok)throw new Error("MCP HTTP "+r.status);const raw=await r.text();let data;try{data=JSON.parse(raw)}catch{const line=raw.split("\n").find(x=>x.startsWith("data: "));if(!line)throw new Error("Некорректный ответ MCP");data=JSON.parse(line.slice(6))}if(data.error)throw new Error(data.error.message||"MCP error");const out=data.result?.content?.[0]?.text;if(!out)throw new Error("Пустой ответ MCP");const parsed=JSON.parse(out);if(data.result?.isError||parsed?.error)throw new Error(parsed?.error||"MCP tool error");return parsed}
+async function bootstrap(){const b=$("#bootstrapAgent"),m=$("#bootstrapMessage");b.disabled=true;m.textContent="Подключаю Agent A и проверяю память…";try{let agents=await mcpCall("agent_list");let agent=agents.find(a=>a.agent_key==="hub-web-agent-a");if(!agent)agent=await mcpCall("agent_register",{agent_key:"hub-web-agent-a",name:"Agent A",description:"First Hub Core E2E agent",provider:"hub-web",metadata:{bootstrap:"first-tenant-e2e"}});
+const conv=await mcpCall("conversation_create",{title:"Hub Core first tenant E2E",agent_id:agent.id,metadata:{test:"agent-a-continuity"}});
+await mcpCall("message_append",{conversation_id:conv.id,agent_id:agent.id,role:"USER",content:{text:"Hub Core first tenant E2E message"},source:"hub-web"});
+await mcpCall("memory_remember",{scope:"personal",agent_id:agent.id,type:"E2E_TEST",title:"First tenant continuity",content:{marker:"AGENT_A_MEMORY_OK",conversation_id:conv.id},confidence:1});
+const context=await mcpCall("context_get",{conversation_id:conv.id,message_limit:10,memory_limit:10});
+const ok=(context.messages||[]).some(x=>x.content?.text==="Hub Core first tenant E2E message")&&(context.personal_memory||[]).some(x=>x.content?.marker==="AGENT_A_MEMORY_OK");
+$("#agentName").textContent=agent.name;$("#agentId").textContent=agent.id;$("#e2eStatus").textContent=ok?"PASS — history + memory":"FAIL";$("#agentInfo").hidden=false;m.textContent=ok?"Agent A подключён. E2E данных и памяти PASS.":"Agent создан, но E2E не прошёл.";if(ok)b.hidden=true}catch(e){m.textContent=e?.message||"Ошибка Agent A bootstrap"}finally{b.disabled=false}}
+$("#bootstrapAgent").onclick=bootstrap;
 form.onsubmit=async e=>{e.preventDefault();msg.textContent="";submit.disabled=true;try{const email=$("#email").value.trim(),password=$("#password").value;if(mode==="signup"){const name=$("#name").value.trim();const{data,error}=await supabase.auth.signUp({email,password,options:{emailRedirectTo:HUB_WEB_URL,data:name?{name}:undefined}});if(error)throw error;if(!data.session){msg.textContent="Аккаунт создан. Откройте письмо и подтвердите email.";resend.hidden=false}else render(data.session)}else{const{data,error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;render(data.session)}}catch(e){msg.textContent=e?.message||"Ошибка авторизации";if((e?.message||"").toLowerCase().includes("email"))resend.hidden=false}finally{submit.disabled=false}};
 resend.onclick=async()=>{const email=$("#email").value.trim();if(!email){msg.textContent="Введите email.";return}resend.disabled=true;msg.textContent="";try{const{error}=await supabase.auth.resend({type:"signup",email,options:{emailRedirectTo:HUB_WEB_URL}});if(error)throw error;msg.textContent="Письмо подтверждения отправлено повторно. Проверьте входящие и спам."}catch(e){msg.textContent=e?.message||"Не удалось отправить письмо повторно"}finally{resend.disabled=false}};
-$("#logout").onclick=async()=>{await supabase.auth.signOut()};
-const{data:{session}}=await supabase.auth.getSession();render(session);
-supabase.auth.onAuthStateChange((_event,session)=>render(session));
+$("#logout").onclick=async()=>{await supabase.auth.signOut()};const{data:{session}}=await supabase.auth.getSession();render(session);supabase.auth.onAuthStateChange((_event,session)=>render(session));
