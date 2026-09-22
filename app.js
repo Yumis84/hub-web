@@ -1,10 +1,9 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const cfg=window.HUB_CONFIG,msg=document.querySelector("#message");
-const FRONTEND_VERSION="auth-fix-10";
+const FRONTEND_VERSION="classic-js-11";
 window.addEventListener("error",e=>{const m=document.querySelector("#bootstrapMessage");if(m)m.textContent="JS ERROR: "+(e.message||"unknown")+" ["+FRONTEND_VERSION+"]"});
 window.addEventListener("unhandledrejection",e=>{const m=document.querySelector("#bootstrapMessage");if(m)m.textContent="JS PROMISE ERROR: "+(e.reason?.message||String(e.reason))+" ["+FRONTEND_VERSION+"]"});
 if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey){msg.textContent="Не настроена публичная конфигурация Hub.";throw new Error("Missing HUB_CONFIG")}
-const supabase=createClient(cfg.supabaseUrl,cfg.supabasePublishableKey),HUB_WEB_URL="https://yumis84.github.io/hub-web/",MCP_URL=cfg.supabaseUrl+"/functions/v1/mcp-gateway/mcp";
+const supabase=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey),HUB_WEB_URL="https://yumis84.github.io/hub-web/",MCP_URL=cfg.supabaseUrl+"/functions/v1/mcp-gateway/mcp";
 let mode="login";const $=s=>document.querySelector(s),form=$("#form"),submit=$("#submit"),resend=$("#resend");
 function setMode(next){mode=next;$("#tabLogin").classList.toggle("active",mode==="login");$("#tabSignup").classList.toggle("active",mode==="signup");$("#nameWrap").hidden=mode!=="signup";submit.textContent=mode==="login"?"Войти":"Создать аккаунт";resend.hidden=true;msg.textContent="";$("#password").autocomplete=mode==="login"?"current-password":"new-password"}
 $("#tabLogin").onclick=()=>setMode("login");$("#tabSignup").onclick=()=>setMode("signup");
