@@ -10,7 +10,7 @@ else{
    $("#loginLink").href="../../?oauth_return="+encodeURIComponent(location.href);
  }else{
   try{
-   const{data:sd,error:se}=await sb.auth.setSession({access_token,refresh_token});if(se)throw se;const liveToken=sd?.session?.access_token||access_token;
+   const{data:sd,error:se}=await sb.auth.setSession({access_token,refresh_token});if(se)throw se;if(sd?.session?.access_token){localStorage.hub_access_token=sd.session.access_token;if(sd.session.refresh_token)localStorage.hub_refresh_token=sd.session.refresh_token;}
    const{data,error}=await sb.auth.oauth.getAuthorizationDetails(id);if(error)throw error;
    if(data?.redirect_url&&!data.authorization_id){location.assign(data.redirect_url);}
    else{
