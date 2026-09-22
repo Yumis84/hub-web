@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const cfg=window.HUB_CONFIG,msg=document.querySelector("#message");
-const FRONTEND_VERSION="e2e-debug-6";
+const FRONTEND_VERSION="auth-fix-9";
 window.addEventListener("error",e=>{const m=document.querySelector("#bootstrapMessage");if(m)m.textContent="JS ERROR: "+(e.message||"unknown")+" ["+FRONTEND_VERSION+"]"});
 window.addEventListener("unhandledrejection",e=>{const m=document.querySelector("#bootstrapMessage");if(m)m.textContent="JS PROMISE ERROR: "+(e.reason?.message||String(e.reason))+" ["+FRONTEND_VERSION+"]"});
 if(!cfg?.supabaseUrl||!cfg?.supabasePublishableKey){msg.textContent="Не настроена публичная конфигурация Hub.";throw new Error("Missing HUB_CONFIG")}
@@ -21,4 +21,4 @@ $("#agentName").textContent=agent.name;$("#agentId").textContent=agent.id;$("#e2
 $("#bootstrapAgent").onclick=bootstrap;
 form.onsubmit=async e=>{e.preventDefault();msg.textContent="";submit.disabled=true;try{const email=$("#email").value.trim(),password=$("#password").value;if(mode==="signup"){const name=$("#name").value.trim();const{data,error}=await supabase.auth.signUp({email,password,options:{emailRedirectTo:HUB_WEB_URL,data:name?{name}:undefined}});if(error)throw error;if(!data.session){msg.textContent="Аккаунт создан. Откройте письмо и подтвердите email.";resend.hidden=false}else render(data.session)}else{const{data,error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;render(data.session)}}catch(e){msg.textContent=e?.message||"Ошибка авторизации";if((e?.message||"").toLowerCase().includes("email"))resend.hidden=false}finally{submit.disabled=false}};
 resend.onclick=async()=>{const email=$("#email").value.trim();if(!email){msg.textContent="Введите email.";return}resend.disabled=true;msg.textContent="";try{const{error}=await supabase.auth.resend({type:"signup",email,options:{emailRedirectTo:HUB_WEB_URL}});if(error)throw error;msg.textContent="Письмо подтверждения отправлено повторно. Проверьте входящие и спам."}catch(e){msg.textContent=e?.message||"Не удалось отправить письмо повторно"}finally{resend.disabled=false}};
-$("#logout").onclick=async()=>{await supabase.auth.signOut()};const{data:{session}}=await supabase.auth.getSession();render(session);supabase.auth.onAuthStateChange((_event,session)=>render(session));
+$("#logout").onclick=async()=>{await supabase.auth.signOut()};const{data:{session}}=await supabase.auth.getSession();render(session);setMode("login");supabase.auth.onAuthStateChange((_event,session)=>render(session));
