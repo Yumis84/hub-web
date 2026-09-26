@@ -6,3 +6,23 @@ document.querySelector("#run").onclick=async()=>{const token=sessionStorage.getI
 document.querySelector("#diag").onclick=async()=>{const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Диагностика…";const d=await call(token,"__diagnostic__");results.textContent=JSON.stringify({diagnostic:d.body?.diagnostic??null,status:d.status,error:d.body?.error??null},null,2)};
 
 document.querySelector("#bootstrap").onclick=async()=>{const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Подключение acceptance agent…";const b=await call(token,"__bootstrap__");if(!b.ok){results.textContent=JSON.stringify({bootstrap:{status:b.status,error:b.body?.error??"FAILED"}},null,2);return}const d=await call(token,"__diagnostic__");const list=await call(token,"project_list");results.textContent=JSON.stringify({bootstrap:{status:b.status,ok:b.ok},diagnostic:d.body?.diagnostic??null,project_list:{status:list.status,ok:list.ok,error:list.body?.error??null,count:Array.isArray(list.body?.data)?list.body.data.length:undefined}},null,2)};
+
+document.querySelector("#project").onclick=async()=>{
+ const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Project API E2E…";
+ const fx=await call(token,"__project_fixture__");
+ if(!fx.ok){results.textContent=JSON.stringify({fixture:{status:fx.status,error:fx.body?.error??"FAILED"}},null,2);return}
+ const pid=fx.body?.fixture?.project_space_id;
+ const list=await call(token,"project_list");
+ const get=await call(token,"project_get",{project_space_id:pid});
+ const ctx=await call(token,"project_context_get",{project_space_id:pid,workstream:"main",query:"OAUTH",max_items:30});
+ const caps=await call(token,"project_capabilities_list",{project_space_id:pid});
+ const text=JSON.stringify(ctx.body?.data??null);
+ const summarize=x=>({status:x.status,ok:x.ok,error:x.body?.error??null,data:x.ok?x.body?.data:undefined});
+ results.textContent=JSON.stringify({
+  fixture:{status:fx.status,ok:fx.ok},
+  project_list:summarize(list),
+  project_get:summarize(get),
+  project_context_get:{...summarize(ctx),shared_marker_visible:text.includes("SHARED-OAUTH-926"),private_marker_excluded:!text.includes("PRIVATE-OAUTH-926")},
+  project_capabilities_list:summarize(caps)
+ },null,2);
+};
