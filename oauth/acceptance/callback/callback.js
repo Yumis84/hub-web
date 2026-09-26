@@ -35,7 +35,7 @@ document.querySelector("#negative").onclick=async()=>{
 
 document.querySelector("#sanitize").onclick=async()=>{
  const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Error sanitization…";
- const x=await call(token,"project_get",{project_space_id:"55000000-0000-0000-0000-000000000099"});
+ const x=await call(token,"project_get",{project_space_id:"definitely-not-a-uuid"});
  const raw=JSON.stringify(x.body??{});
  results.textContent=JSON.stringify({
   status:x.status,ok:x.ok,error:x.body?.error??null,
