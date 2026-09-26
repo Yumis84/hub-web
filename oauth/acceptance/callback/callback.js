@@ -43,3 +43,24 @@ document.querySelector("#sanitize").onclick=async()=>{
   no_internal_details:!/(postgres|postgrest|schema|relation|function|sql|permission denied|uuid)/i.test(raw)
  },null,2);
 };
+
+document.querySelector("#broker").onclick=async()=>{
+ const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Broker READ E2E…";
+ const boot=await call(token,"__broker_bootstrap__"); if(!boot.ok){results.textContent=JSON.stringify({bootstrap:boot},null,2);return}
+ const fx=await call(token,"__broker_fixture__"); if(!fx.ok){results.textContent=JSON.stringify({fixture:fx},null,2);return}
+ const pid=fx.body?.fixture?.project_space_id, cid=fx.body?.fixture?.project_connection_id;
+ const idem="broker-oauth-"+Date.now();
+ const rq=await call(token,"__broker_request__",{project_space_id:pid,idempotency_key:idem}); if(!rq.ok){results.textContent=JSON.stringify({request:{status:rq.status,error:rq.body?.error}},null,2);return}
+ const rid=rq.body?.request?.id;
+ const run=await call(token,"__broker_run__",{request_id:rid,project_connection_id:cid});
+ const get=await call(token,"__broker_get__",{request_id:rid});
+ const raw=JSON.stringify({run:run.body,get:get.body});
+ results.textContent=JSON.stringify({
+  bootstrap:{status:boot.status,ok:boot.ok},
+  fixture:{status:fx.status,ok:fx.ok},
+  request:{status:rq.status,ok:rq.ok,id:rid,request_status:rq.body?.request?.status},
+  execution:{status:run.status,ok:run.ok,data:run.body?.execution??null},
+  final:{status:get.status,ok:get.ok,data:get.body?.request??null},
+  no_secret_material:!/(secret|password|api[_-]?key|bearer|access[_-]?token)/i.test(raw)
+ },null,2);
+};
