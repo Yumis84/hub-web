@@ -46,14 +46,14 @@ document.querySelector("#sanitize").onclick=async()=>{
 
 document.querySelector("#broker").onclick=async()=>{
  const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Broker READ E2E…";
- const boot=await call(token,"__broker_bootstrap__"); if(!boot.ok){results.textContent=JSON.stringify({bootstrap:boot},null,2);return}
- const fx=await call(token,"__broker_fixture__"); if(!fx.ok){results.textContent=JSON.stringify({fixture:fx},null,2);return}
+ results.textContent="1/5 bootstrap…"; const boot=await call(token,"__broker_bootstrap__"); if(!boot.ok){results.textContent=JSON.stringify({bootstrap:boot},null,2);return}
+ results.textContent="2/5 fixture…"; const fx=await call(token,"__broker_fixture__"); if(!fx.ok){results.textContent=JSON.stringify({fixture:fx},null,2);return}
  const pid=fx.body?.fixture?.project_space_id, cid=fx.body?.fixture?.project_connection_id;
  const idem="broker-oauth-"+Date.now();
  const rq=await call(token,"__broker_request__",{project_space_id:pid,idempotency_key:idem}); if(!rq.ok){results.textContent=JSON.stringify({request:{status:rq.status,error:rq.body?.error}},null,2);return}
  const rid=rq.body?.request?.id;
  const run=await call(token,"__broker_run__",{request_id:rid,project_connection_id:cid});
- const get=await call(token,"__broker_get__",{request_id:rid});
+ results.textContent="5/5 final read…"; const get=await call(token,"__broker_get__",{request_id:rid});
  const raw=JSON.stringify({run:run.body,get:get.body});
  results.textContent=JSON.stringify({
   bootstrap:{status:boot.status,ok:boot.ok},
@@ -70,10 +70,10 @@ document.querySelector("#brokerRuntime").onclick=async()=>{
  const boot=await call(token,"__broker_bootstrap__"); if(!boot.ok){results.textContent=JSON.stringify({bootstrap:boot},null,2);return}
  const fx=await call(token,"__broker_fixture__"); if(!fx.ok){results.textContent=JSON.stringify({fixture:fx},null,2);return}
  const pid=fx.body?.fixture?.project_space_id, cid=fx.body?.fixture?.project_connection_id;
- const rq=await call(token,"__broker_request__",{project_space_id:pid,idempotency_key:"broker-runtime-"+Date.now()});
+ results.textContent="3/5 request…"; const rq=await call(token,"__broker_request__",{project_space_id:pid,idempotency_key:"broker-runtime-"+Date.now()});
  if(!rq.ok){results.textContent=JSON.stringify({request:{status:rq.status,error:rq.body?.error}},null,2);return}
  const rid=rq.body?.request?.id;
- const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),12000); let wr; try{wr=await fetch("https://trrhyahuzqbozxanaczw.supabase.co/functions/v1/broker-worker-acceptance",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+token},body:JSON.stringify({request_id:rid,project_connection_id:cid}),signal:ctl.signal});}catch(e){clearTimeout(tm);results.textContent=JSON.stringify({stage:"worker_http",error:e?.name==="AbortError"?"TIMEOUT_12S":String(e)},null,2);return} clearTimeout(tm);
+ results.textContent="4/5 worker HTTP…"; const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),12000); let wr; try{wr=await fetch("https://trrhyahuzqbozxanaczw.supabase.co/functions/v1/broker-worker-acceptance",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+token},body:JSON.stringify({request_id:rid,project_connection_id:cid}),signal:ctl.signal});}catch(e){clearTimeout(tm);results.textContent=JSON.stringify({stage:"worker_http",error:e?.name==="AbortError"?"TIMEOUT_12S":String(e)},null,2);return} clearTimeout(tm);
  const wb=await wr.json().catch(()=>({}));
  const get=await call(token,"__broker_get__",{request_id:rid});
  const raw=JSON.stringify({worker:wb,final:get.body});
