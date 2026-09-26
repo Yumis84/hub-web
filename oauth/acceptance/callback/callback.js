@@ -73,7 +73,7 @@ document.querySelector("#brokerRuntime").onclick=async()=>{
  const rq=await call(token,"__broker_request__",{project_space_id:pid,idempotency_key:"broker-runtime-"+Date.now()});
  if(!rq.ok){results.textContent=JSON.stringify({request:{status:rq.status,error:rq.body?.error}},null,2);return}
  const rid=rq.body?.request?.id;
- const wr=await fetch("https://trrhyahuzqbozxanaczw.supabase.co/functions/v1/broker-worker-acceptance",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+token},body:JSON.stringify({request_id:rid,project_connection_id:cid})});
+ const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),12000); let wr; try{wr=await fetch("https://trrhyahuzqbozxanaczw.supabase.co/functions/v1/broker-worker-acceptance",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+token},body:JSON.stringify({request_id:rid,project_connection_id:cid}),signal:ctl.signal});}catch(e){clearTimeout(tm);results.textContent=JSON.stringify({stage:"worker_http",error:e?.name==="AbortError"?"TIMEOUT_12S":String(e)},null,2);return} clearTimeout(tm);
  const wb=await wr.json().catch(()=>({}));
  const get=await call(token,"__broker_get__",{request_id:rid});
  const raw=JSON.stringify({worker:wb,final:get.body});
