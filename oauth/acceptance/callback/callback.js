@@ -26,3 +26,9 @@ document.querySelector("#project").onclick=async()=>{
   project_capabilities_list:summarize(caps)
  },null,2);
 };
+
+document.querySelector("#negative").onclick=async()=>{
+ const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Negative security gates…";
+ const x=await call(token,"__negative_assertions__");
+ results.textContent=JSON.stringify({status:x.status,ok:x.ok,error:x.body?.error??null,assertions:x.body?.assertions??null},null,2);
+};
