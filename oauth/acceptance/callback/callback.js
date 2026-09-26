@@ -32,3 +32,14 @@ document.querySelector("#negative").onclick=async()=>{
  const x=await call(token,"__negative_assertions__");
  results.textContent=JSON.stringify({status:x.status,ok:x.ok,error:x.body?.error??null,assertions:x.body?.assertions??null},null,2);
 };
+
+document.querySelector("#sanitize").onclick=async()=>{
+ const token=sessionStorage.getItem("hub_acceptance_access_token");results.textContent="Error sanitization…";
+ const x=await call(token,"project_get",{project_space_id:"55000000-0000-0000-0000-000000000099"});
+ const raw=JSON.stringify(x.body??{});
+ results.textContent=JSON.stringify({
+  status:x.status,ok:x.ok,error:x.body?.error??null,
+  bounded_error:x.status===403&&x.body?.error==="PROJECT_ACCESS_DENIED",
+  no_internal_details:!/(postgres|postgrest|schema|relation|function|sql|permission denied|uuid)/i.test(raw)
+ },null,2);
+};
