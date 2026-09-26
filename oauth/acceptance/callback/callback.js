@@ -64,3 +64,26 @@ document.querySelector("#broker").onclick=async()=>{
   no_secret_material:!/(secret|password|api[_-]?key|bearer|access[_-]?token)/i.test(raw)
  },null,2);
 };
+
+document.querySelector("#brokerRuntime").onclick=async()=>{
+ const token=sessionStorage.getItem("hub_acceptance_access_token"); results.textContent="Broker Runtime E2E…";
+ const boot=await call(token,"__broker_bootstrap__"); if(!boot.ok){results.textContent=JSON.stringify({bootstrap:boot},null,2);return}
+ const fx=await call(token,"__broker_fixture__"); if(!fx.ok){results.textContent=JSON.stringify({fixture:fx},null,2);return}
+ const pid=fx.body?.fixture?.project_space_id, cid=fx.body?.fixture?.project_connection_id;
+ const rq=await call(token,"__broker_request__",{project_space_id:pid,idempotency_key:"broker-runtime-"+Date.now()});
+ if(!rq.ok){results.textContent=JSON.stringify({request:{status:rq.status,error:rq.body?.error}},null,2);return}
+ const rid=rq.body?.request?.id;
+ const wr=await fetch("https://trrhyahuzqbozxanaczw.supabase.co/functions/v1/broker-worker-acceptance",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+token},body:JSON.stringify({request_id:rid,project_connection_id:cid})});
+ const wb=await wr.json().catch(()=>({}));
+ const get=await call(token,"__broker_get__",{request_id:rid});
+ const raw=JSON.stringify({worker:wb,final:get.body});
+ results.textContent=JSON.stringify({
+  bootstrap:{status:boot.status,ok:boot.ok},
+  fixture:{status:fx.status,ok:fx.ok},
+  request:{status:rq.status,ok:rq.ok,id:rid,request_status:rq.body?.request?.status},
+  worker:{status:wr.status,ok:wr.ok,data:wb.execution??null,error:wb.error??null},
+  final:{status:get.status,ok:get.ok,data:get.body?.request??null},
+  dedicated_runtime:wb.execution?.runtime_key==="acceptance-broker-worker",
+  no_secret_material:!/(secret|password|api[_-]?key|bearer|access[_-]?token|service[_-]?role)/i.test(raw)
+ },null,2);
+};
