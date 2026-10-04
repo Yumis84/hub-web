@@ -1,7 +1,7 @@
 const cfg=window.HUB_CONFIG,$=s=>document.querySelector(s),AUTH=cfg.supabaseUrl+"/auth/v1";let mode="login";
 function setMode(x){mode=x;$("#submit").textContent=x==="signup"?"Создать аккаунт":"Войти";$("#tabSignup").classList.toggle("active",x==="signup");$("#tabLogin").classList.toggle("active",x==="login");$("#message").textContent=""}
 $("#tabLogin").onclick=()=>setMode("login");$("#tabSignup").onclick=()=>setMode("signup");
-function render(u){$("#auth").hidden=!!u;$("#account").hidden=!u;if(u){$("#userEmail").textContent=u.email||"—";loadConnections().catch(()=>{});const q=new URLSearchParams(location.search),ret=q.get("oauth_return");if(ret){q.delete("oauth_return");history.replaceState(null,"",location.pathname+(q.size?"?"+q:""));location.assign(ret)}}}
+function render(u){$("#auth").hidden=!!u;$("#account").hidden=!u;if(u){$("#userEmail").textContent=u.email||"—";if(cfg.mode==="acceptance"){runAcceptanceBootstrap().catch(e=>{$("#connectMessage").textContent="Acceptance: "+e.message});return}loadConnections().catch(()=>{});const q=new URLSearchParams(location.search),ret=q.get("oauth_return");if(ret){q.delete("oauth_return");history.replaceState(null,"",location.pathname+(q.size?"?"+q:""));location.assign(ret)}}}
 async function post(path,body){const r=await fetch(AUTH+path,{method:"POST",headers:{"apikey":cfg.supabasePublishableKey,"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.msg||d.message||d.error_description||d.error||("HTTP "+r.status));return d}
 $("#form").onsubmit=async e=>{e.preventDefault();const b=$("#submit"),m=$("#message");b.disabled=true;m.textContent="";try{const email=$("#email").value.trim(),password=$("#password").value;if(mode==="signup"){const d=await post("/signup",{email,password});if(d.access_token){saveSession(d);render(d.user)}else{m.textContent="Аккаунт создан. Подтвердите email.";$("#resend").hidden=false}}else{const d=await post("/token?grant_type=password",{email,password});saveSession(d);render(d.user)}}catch(e){m.textContent=e.message}finally{b.disabled=false}};
 $("#resend").onclick=async()=>{try{await post("/resend",{type:"signup",email:$("#email").value.trim()});$("#message").textContent="Письмо отправлено повторно."}catch(e){$("#message").textContent=e.message}};
@@ -16,3 +16,15 @@ async function bootstrapB(agentA,conv){const m=$("#bootstrapMessage");m.textCont
 
 const DEFAULT_AGENT_GRANTS=["agent.read","conversation.read","conversation.write","memory.read","memory.write","session.read","session.write","event.read","event.write"];
 $("#prepareAi").onclick=()=>{const h=document.querySelector(".connectHelp");if(h){h.open=true;h.scrollIntoView({behavior:"smooth",block:"nearest"})}$("#connectMessage").textContent="Выберите AI-клиент в инструкции ниже и подключите его через OAuth. Hub выдаст доступ только после вашего разрешения."};
+
+async function runAcceptanceBootstrap(){
+ const m=$("#connectMessage"); m.textContent="Acceptance: привязка OAuth-сессии…";
+ const clientId="hub-web-acceptance-"+crypto.randomUUID();
+ const token=await accessToken();
+ const r=await fetch(cfg.supabaseUrl+"/rest/v1/rpc/acceptance_oauth_bootstrap",{method:"POST",headers:{"Authorization":"Bearer "+token,"apikey":cfg.supabasePublishableKey,"Content-Type":"application/json","Accept-Profile":"app","Content-Profile":"app"},body:JSON.stringify({p_client_id:clientId})});
+ const raw=await r.text(); if(!r.ok) throw new Error(raw.slice(0,240));
+ localStorage.setItem("hub_acceptance_client_id",clientId);
+ m.textContent="Acceptance OAuth готов. Эту вкладку можно оставить открытой.";
+ const p=document.querySelector("#prepareAi"); if(p)p.hidden=true;
+ const h=document.querySelector(".connectHelp"); if(h)h.hidden=true;
+}
