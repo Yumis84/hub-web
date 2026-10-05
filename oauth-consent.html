@@ -5,12 +5,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const projectUrl="https://trrhyahuzqbozxanaczw.supabase.co";
 const publishableKey="sb_publishable_gJ2s1m3TcfLlVymFoOHfkQ_iMxO7rB5";
-const supabase=createClient(projectUrl,publishableKey,{auth:{persistSession:true,storageKey:"hub_acceptance_oauth"}});
+const sharedStorage={getItem:k=>localStorage.getItem(k),setItem:(k,v)=>localStorage.setItem(k,v),removeItem:k=>localStorage.removeItem(k)};\nconst supabase=createClient(projectUrl,publishableKey,{auth:{persistSession:true,storage:sharedStorage,storageKey:"hub_acceptance_session"}});
 const $=s=>document.querySelector(s), id=new URLSearchParams(location.search).get("authorization_id");
 function fail(x){$("#message").textContent="OAuth: "+x;$("#details").hidden=true}
 if(!id){fail("отсутствует authorization_id")}else{
  const {data:{user}}=await supabase.auth.getUser();
- if(!user){const ret=location.pathname+"?authorization_id="+encodeURIComponent(id);location.href="./?mode=acceptance&oauth_return="+encodeURIComponent(ret)}
+ if(!user){const ret="oauth-consent.html?authorization_id="+encodeURIComponent(id);location.href="./?mode=acceptance&oauth_return="+encodeURIComponent(ret)}
  else{
   const {data,error}=await supabase.auth.oauth.getAuthorizationDetails(id);
   if(error||!data)fail(error?.message||"запрос не найден");
