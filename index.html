@@ -4,18 +4,5 @@ const _id=id=>document.getElementById(id);
 const _setPreloadMode=x=>{window.__hubAuthMode=x;_id("submit").textContent=x==="signup"?"Создать аккаунт":"Войти";_id("tabSignup").classList.toggle("active",x==="signup");_id("tabLogin").classList.toggle("active",x==="login")};
 _id("tabLogin").addEventListener("click",()=>_setPreloadMode("login"));
 _id("tabSignup").addEventListener("click",()=>_setPreloadMode("signup"));
-_id("form").addEventListener("submit",e=>{
- if(window.__hubAppAuthReady)return;
- e.preventDefault();
- const b=_id("submit"),m=_id("message");
- b.disabled=true;
- m.textContent="Hub загружается…";
- const started=Date.now();
- const wait=()=>{
-  if(window.__hubAppAuthReady){b.disabled=false;m.textContent="";_id("form").requestSubmit();return}
-  if(Date.now()-started>10000){b.disabled=false;m.textContent="Не удалось загрузить Hub. Обновите страницу и попробуйте ещё раз.";return}
-  setTimeout(wait,100);
- };
- wait();
-});
-</script><script src="./config.js?v=13"></script><script src="./app.js?v=60"></script></body></html>
+// Auth form submit is owned exclusively by app.js — no preloader capture/wait fallback.
+</script><script src="./config.js?v=13"></script><script src="./app.js?v=61"></script></body></html>
