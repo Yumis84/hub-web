@@ -21,7 +21,7 @@ if(!id){fail("отсутствует authorization_id")}else{
   else{
    $("#message").textContent="Проверьте приложение и явно разрешите или отклоните доступ.";
    $("#clientName").textContent=data.client?.name||"—";$("#redirectUri").textContent=data.redirect_uri||"—";$("#scope").textContent=data.scope||"—";$("#details").hidden=false;
-   $("#approve").onclick=async()=>{const {data:r,error:e}=await supabase.auth.oauth.approveAuthorization(id);if(e)return fail(e.message);location.assign(r.redirect_url)};
+   $("#approve").onclick=async()=>{$("#approve").disabled=true;$("#message").textContent="Привязываю OAuth-клиент…";const {error:b}=await supabase.schema("app").rpc("acceptance_bind_oauth_authorization",{p_authorization_id:id});if(b){$("#approve").disabled=false;return fail("binding: "+b.message)}$("#message").textContent="Разрешаю доступ…";const {data:r,error:e}=await supabase.auth.oauth.approveAuthorization(id);if(e){$("#approve").disabled=false;return fail(e.message)}location.assign(r.redirect_url)};
    $("#deny").onclick=async()=>{const {data:r,error:e}=await supabase.auth.oauth.denyAuthorization(id);if(e)return fail(e.message);location.assign(r.redirect_url)};
   }
  }
