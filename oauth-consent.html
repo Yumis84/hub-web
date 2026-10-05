@@ -8,7 +8,7 @@ const publishableKey="sb_publishable_gJ2s1m3TcfLlVymFoOHfkQ_iMxO7rB5";
 const sharedStorage={getItem:k=>localStorage.getItem(k),setItem:(k,v)=>localStorage.setItem(k,v),removeItem:k=>localStorage.removeItem(k)};
 const supabase=createClient(projectUrl,publishableKey,{auth:{persistSession:true,storage:sharedStorage,storageKey:"hub_acceptance_supabase_auth"}});
 const rawAccess=localStorage.getItem("hub_acceptance_access_token"),rawRefresh=localStorage.getItem("hub_acceptance_refresh_token");
-if(rawAccess){const {data:{session}}=await supabase.auth.getSession();if(!session?.access_token){const {error:setError}=await supabase.auth.setSession({access_token:rawAccess,refresh_token:rawRefresh||""});if(setError)console.warn("Acceptance session bridge:",setError.message)}}
+if(rawAccess){const {error:setError}=await supabase.auth.setSession({access_token:rawAccess,refresh_token:rawRefresh||""});if(setError){console.warn("Acceptance session bridge:",setError.message);await supabase.auth.signOut({scope:"local"}).catch(()=>{})}}
 const $=s=>document.querySelector(s), id=new URLSearchParams(location.search).get("authorization_id");
 function fail(x){$("#message").textContent="OAuth: "+x;$("#details").hidden=true}
 if(!id){fail("отсутствует authorization_id")}else{
