@@ -1,32 +1,26 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>AI Agent Hub — OAuth consent</title><link rel="stylesheet" href="./style.css?v=30"/></head>
-<body><main class="shell"><section class="card"><div class="brand">AI Agent Hub</div><div id="banner" class="status">Acceptance OAuth</div><p class="muted">Разрешение доступа AI-агенту</p><div id="state"><p id="message">Проверяю OAuth-запрос…</p><div id="details" hidden><p id="currentAccount" class="muted"></p><button id="switchAccount" type="button" class="primary" style="background:#475467">Сменить аккаунт</button><dl><dt>Клиент</dt><dd id="clientName"></dd><dt>Redirect URI</dt><dd id="redirectUri"></dd><dt>Запрошенные права</dt><dd id="scope"></dd></dl><button id="approve" class="primary">Разрешить</button><button id="deny" class="primary" style="background:#667085">Отклонить</button></div></div></section></main>
+<html lang="ru"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>AI Agent Hub — Acceptance OAuth</title><link rel="stylesheet" href="./style.css?v=30"/></head>
+<body><main class="shell"><section class="card"><div class="brand">AI Agent Hub</div><div class="status">Acceptance OAuth</div><p class="muted">Разрешение доступа AI-агенту</p><div id="loading" class="status">Проверяем запрос…</div><div id="consent" hidden><dl><dt>Вы вошли как</dt><dd><strong id="currentUser">—</strong></dd><dt>Приложение</dt><dd id="clientName">AI-клиент</dd><dt>Redirect URI</dt><dd id="redirectUri">—</dd><dt>Запрашивает</dt><dd id="scopes">—</dd></dl><button id="approve" class="primary" type="button">Разрешить</button><button id="switchAccount" class="primary secondary" type="button">Войти другим аккаунтом</button><button id="deny" class="primary secondary" type="button">Отклонить</button></div><div id="needLogin" hidden><p class="message">Для подтверждения подключения сначала войдите в Acceptance Hub.</p><a id="loginLink" class="primary linkbtn" href="./?mode=acceptance">Войти</a></div><p id="error" class="message"></p></section></main>
 <script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const projectUrl="https://trrhyahuzqbozxanaczw.supabase.co";
-const publishableKey="sb_publishable_gJ2s1m3TcfLlVymFoOHfkQ_iMxO7rB5";
-const sharedStorage={getItem:k=>localStorage.getItem(k),setItem:(k,v)=>localStorage.setItem(k,v),removeItem:k=>localStorage.removeItem(k)};
-const supabase=createClient(projectUrl,publishableKey,{auth:{persistSession:true,storage:sharedStorage,storageKey:"hub_acceptance_supabase_auth"}});
-const rawAccess=localStorage.getItem("hub_acceptance_access_token"),rawRefresh=localStorage.getItem("hub_acceptance_refresh_token");
-if(rawAccess){const {error:setError}=await supabase.auth.setSession({access_token:rawAccess,refresh_token:rawRefresh||""});if(setError){console.warn("Acceptance session bridge:",setError.message);await supabase.auth.signOut({scope:"local"}).catch(()=>{})}}
-const $=s=>document.querySelector(s), id=new URLSearchParams(location.search).get("authorization_id");
-function fail(x){$("#message").textContent="OAuth: "+x;$("#details").hidden=true}
-async function clearAcceptanceSession(){await supabase.auth.signOut({scope:"local"}).catch(()=>{});["hub_acceptance_access_token","hub_acceptance_refresh_token","hub_acceptance_supabase_auth"].forEach(k=>localStorage.removeItem(k))}
-if(!id){fail("отсутствует authorization_id")}else{
- const {data:{user}}=await supabase.auth.getUser();
- if(!user){const ret="oauth-consent.html?authorization_id="+encodeURIComponent(id);location.href="./?mode=acceptance&oauth_return="+encodeURIComponent(ret)}
- else{
-  const {data,error}=await supabase.auth.oauth.getAuthorizationDetails(id);
-  if(error||!data)fail(error?.message||"запрос не найден");
-  else if(!("authorization_id" in data)){location.assign(data.redirect_url)}
-  else{
-   $("#message").textContent="Проверьте приложение и явно разрешите или отклоните доступ.";
-   $("#currentAccount").textContent="Текущий аккаунт: "+(user.email||"—");
-   $("#clientName").textContent=data.client?.name||"—";$("#redirectUri").textContent=data.redirect_uri||"—";$("#scope").textContent=data.scope||"—";$("#details").hidden=false;
-   $("#switchAccount").onclick=async()=>{$("#switchAccount").disabled=true;$("#message").textContent="Выходим из текущего acceptance-аккаунта…";await clearAcceptanceSession();const ret="oauth-consent.html?authorization_id="+encodeURIComponent(id);location.replace("./?mode=acceptance&oauth_return="+encodeURIComponent(ret)+"&switch_account=1")};
-   $("#approve").onclick=async()=>{$("#approve").disabled=true;$("#message").textContent="Привязываю OAuth-клиент…";const {error:b}=await supabase.schema("app").rpc("acceptance_bind_oauth_authorization",{p_authorization_id:id});if(b){$("#approve").disabled=false;return fail("binding: "+b.message)}$("#message").textContent="Разрешаю доступ…";const {data:r,error:e}=await supabase.auth.oauth.approveAuthorization(id);if(e){$("#approve").disabled=false;return fail(e.message)}location.assign(r.redirect_url)};
-   $("#deny").onclick=async()=>{const {data:r,error:e}=await supabase.auth.oauth.denyAuthorization(id);if(e)return fail(e.message);location.assign(r.redirect_url)};
-  }
- }
+import{createClient}from"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+const projectUrl="https://trrhyahuzqbozxanaczw.supabase.co",publishableKey="sb_publishable_gJ2s1m3TcfLlVymFoOHfkQ_iMxO7rB5",$=s=>document.querySelector(s),id=new URLSearchParams(location.search).get("authorization_id");
+const fail=m=>{$("#loading").hidden=true;$("#consent").hidden=true;$("#error").textContent=m};
+const clearWebSession=()=>{["hub_acceptance_access_token","hub_acceptance_refresh_token","hub_acceptance_user","hub_acceptance_session","hub_acceptance_supabase_auth"].forEach(k=>localStorage.removeItem(k))};
+if(!id)fail("Некорректный OAuth-запрос: отсутствует authorization_id");
+else{
+ const sb=createClient(projectUrl,publishableKey,{auth:{persistSession:false,autoRefreshToken:false}});
+ const access_token=localStorage.hub_acceptance_access_token,refresh_token=localStorage.hub_acceptance_refresh_token;
+ if(!access_token||!refresh_token){$("#loading").hidden=true;$("#needLogin").hidden=false;$("#loginLink").href="./?mode=acceptance&oauth_return="+encodeURIComponent(location.href)}
+ else try{
+  const{data:sd,error:se}=await sb.auth.setSession({access_token,refresh_token});if(se)throw se;
+  if(sd?.session?.access_token){localStorage.hub_acceptance_access_token=sd.session.access_token;if(sd.session.refresh_token)localStorage.hub_acceptance_refresh_token=sd.session.refresh_token}
+  const currentUser=sd?.session?.user||sd?.user;$("#currentUser").textContent=currentUser?.email||"Неизвестный пользователь";
+  const{data,error}=await sb.auth.oauth.getAuthorizationDetails(id);if(error)throw error;
+  if(data?.redirect_url&&!data.authorization_id)location.assign(data.redirect_url);
+  else{$("#loading").hidden=true;$("#consent").hidden=false;$("#clientName").textContent=data?.client?.name||data?.client_name||"AI-клиент";$("#redirectUri").textContent=data?.redirect_uri||"—";$("#scopes").textContent=(data?.scope||"email").split(" ").join(", ")}
+  $("#approve").onclick=async()=>{try{$("#approve").disabled=true;const{error:be}=await sb.schema("app").rpc("acceptance_bind_oauth_authorization",{p_authorization_id:id});if(be)throw be;const{data:r,error:e}=await sb.auth.oauth.approveAuthorization(id);if(e)throw e;if(!r?.redirect_url)throw new Error("OAuth approval не вернул redirect_url");location.replace(r.redirect_url)}catch(e){fail(e.message)}};
+  $("#switchAccount").onclick=async()=>{try{await sb.auth.signOut({scope:"local"})}catch{}clearWebSession();location.assign("./?mode=acceptance&oauth_return="+encodeURIComponent(location.href))};
+  $("#deny").onclick=async()=>{try{$("#deny").disabled=true;const{data:r,error:e}=await sb.auth.oauth.denyAuthorization(id);if(e)throw e;location.assign(r.redirect_url)}catch(e){fail(e.message)}}
+ }catch(e){if(/session|token|jwt|auth/i.test(e.message||"")){clearWebSession();$("#loading").hidden=true;$("#needLogin").hidden=false;$("#loginLink").href="./?mode=acceptance&oauth_return="+encodeURIComponent(location.href)}else fail(e.message||String(e))}
 }
 </script></body></html>
