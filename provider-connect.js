@@ -6,6 +6,7 @@
   const copy = document.getElementById("copyMcpUrl");
   const field = document.getElementById("mcpServerUrl");
   const instructions = document.getElementById("providerInstructions");
+  const heading = document.getElementById("providerHeading");
   if (!select || !actions || !open || !copy || !field || !instructions) return;
   const MCP = "https://enhcnvzzkyvusthfjnci.supabase.co/functions/v1/mcp-gateway/mcp";
   const providers = {
@@ -30,7 +31,8 @@
     actions.hidden = !provider;
     if (!provider) return;
     field.value = MCP;
-    open.textContent = provider.label;
+    open.textContent = provider.label + " ↗";
+    if (heading) heading.textContent = "Подключить " + ({chatgpt:"ChatGPT",claude:"Claude",grok:"Grok"}[select.value]);
     instructions.textContent = provider.help;
   });
   copy.addEventListener("click", async () => {
