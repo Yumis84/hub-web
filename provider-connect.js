@@ -47,6 +47,6 @@
   });
   open.addEventListener("click", () => {
     const provider = providers[select.value];
-    if (provider) { const tab = window.open(provider.url, "_blank", "noopener,noreferrer"); if (!tab) instructions.textContent = "Браузер мог заблокировать новое окно. Откройте адрес вручную: " + provider.url; }
+    if (provider) { window.location.assign(provider.url); }
   });
 })();
