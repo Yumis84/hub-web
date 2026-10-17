@@ -15,9 +15,9 @@
       help: "Проверьте имя и MCP URL, подтвердите создание коннектора и авторизуйтесь в Hub. Если окно добавления не открылось автоматически, выберите «Add custom connector»."
     },
     chatgpt: {
-      label: "Открыть ChatGPT",
-      url: "https://chatgpt.com/",
-      help: "В ChatGPT откройте Plugins → «+» → Add custom MCP server. Вставьте скопированный MCP URL, подтвердите добавление и OAuth. Прямое автозаполнение URL не подтверждено."
+      label: "Открыть подключения ChatGPT",
+      url: "https://chatgpt.com/#settings/Connectors",
+      help: "Откройте Settings → Plugins/Apps → создание пользовательского MCP-подключения. Вставьте MCP URL и подтвердите OAuth. Ссылка на раздел настроек является предварительной: прямое открытие формы и автозаполнение требуют проверки."
     },
     grok: {
       label: "Открыть коннекторы Grok",
