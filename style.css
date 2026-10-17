@@ -10,3 +10,12 @@
 .providerLauncher #copyMcpUrl{display:block;width:100%;margin-top:10px;padding:11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#20252b;font-weight:650}
 .providerLauncher #providerInstructions{font-size:13px;line-height:1.5;margin:14px 0}
 .providerLauncher .muted{overflow-wrap:anywhere}
+
+.providerLauncher h2{font-size:20px;margin:20px 0 14px}
+.connectSteps{list-style:none;counter-reset:connect-step;margin:0;padding:0}
+.connectSteps>li{position:relative;padding:4px 0 22px 42px;margin:0 0 12px;border-bottom:1px solid #e2e6ea;counter-increment:connect-step}
+.connectSteps>li:last-child{border-bottom:0;margin-bottom:0}
+.connectSteps>li::before{content:counter(connect-step);position:absolute;left:0;top:1px;width:28px;height:28px;display:grid;place-items:center;border:1px solid #d0d5dd;border-radius:50%;background:#fff;font-weight:650}
+.connectSteps strong{display:block;margin-bottom:8px}
+.connectSteps p{font-size:14px;color:#667085;line-height:1.55;margin:8px 0 12px}
+.connectSteps label{font-size:13px}
