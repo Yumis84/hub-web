@@ -1,0 +1,24 @@
+name: Hub Web cabinet checks
+on:
+  push:
+    branches: [feature/cabinet-phase0-stabilize]
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'app.js'
+      - 'cabinet.js'
+      - 'style.css'
+      - 'config.js'
+      - 'tests/**'
+      - '.github/workflows/cabinet-checks.yml'
+permissions:
+  contents: read
+jobs:
+  static-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/cabinet-static.mjs
