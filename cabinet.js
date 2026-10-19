@@ -63,11 +63,25 @@
         tabs.append(b);
       }
       tabs.firstChild.classList.add("selected");
-      page.append(tabs);
-      const panel=notice("Входящие","Подключение глобального Inbox к пользовательской сессии ещё проверяется. Здесь не показываются вымышленные уведомления.");
+      const intro=node("div","cabinet-intro");
+      intro.append(node("p","cabinet-eyebrow","РАБОЧЕЕ ПРОСТРАНСТВО"),node("h2","","Всё важное в одном месте"),node("p","cabinet-muted","Входящие, поручения агентам и события проектов. Данные появятся только после безопасного подключения к вашему аккаунту."));
+      page.append(intro,tabs);
+      const panel=notice("Глобальный Inbox","Ожидается подключение пользовательского API. Счётчики и уведомления не отображаются, пока не подтверждены права доступа.");
       panel.querySelector("p").id="cabinetInboxMessage";
+      panel.setAttribute("aria-label","Состояние глобального Inbox");
       page.append(panel);
-      page.append(notice("Продолжить работу","После подключения API здесь появятся ваши доступные проекты и последние события."));
+      const actions=node("div","cabinet-action-grid");
+      for (const [title,description,href] of [
+        ["Мои проекты","Продолжить работу в доступных пространствах","#/projects"],
+        ["Мои агенты","Подключить или проверить AI-агента","#/agents"],
+        ["Сервисы","Управлять будущими интеграциями","#/services"]
+      ]) {
+        const a=node("a","cabinet-action");
+        a.href=href;
+        a.append(node("strong","",title),node("span","",description));
+        actions.append(a);
+      }
+      page.append(node("h2","cabinet-section-title","Быстрый переход"),actions);
     } else if (id==="projects") {
       page.append(notice("Мои проекты","Список проектов будет доступен после проверки прав пользовательского JWT. Чужие проекты не отображаются."));
     } else if (id==="agents") {
