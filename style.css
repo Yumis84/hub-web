@@ -35,7 +35,8 @@ body:has(#account:not([hidden])) .card>.brand,body:has(#account:not([hidden])) .
  .cabinet-account-label{max-width:44%;font-size:11px}
  .cabinet-page,.cabinet-legacy{padding:18px}
  .cabinet-legacy{padding-top:0}
- .cabinet-bottom{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #dce2e9;z-index:20;padding-bottom:env(safe-area-inset-bottom)}
+ .cabinet-bottom{display:flex;overflow-x:auto;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #dce2e9;z-index:20;padding-bottom:env(safe-area-inset-bottom);scrollbar-width:thin}
+ .cabinet-bottom .cabinet-link{flex:0 0 92px}
  .cabinet-bottom .cabinet-link{padding:13px 2px;min-height:52px;text-align:center;font-size:12px;white-space:normal;border-radius:0}
  .cabinet-panel{padding:17px}
 }
@@ -52,3 +53,14 @@ body:has(#account:not([hidden])) .card>.brand,body:has(#account:not([hidden])) .
 .cabinet-action span{font-size:13px;color:#667085;line-height:1.45}
 @media(max-width:860px){.cabinet-action-grid{grid-template-columns:1fr}}
 @media(max-width:720px){.cabinet-intro{padding:3px 0 20px}.cabinet-action{min-height:0;padding:17px}}
+.service-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.service-heading h2{margin-bottom:7px}
+.service-badge{flex:none;border-radius:999px;background:#eef2f6;color:#344054;padding:7px 10px;font-size:12px;font-weight:750}
+.service-message{min-height:22px;color:#475467;font-size:14px;line-height:1.45}
+.service-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.service-button{width:auto;min-width:230px;margin:0}
+.service-danger{border:1px solid #f0b8b4;background:#fff;color:#b42318;border-radius:10px;padding:12px 14px;font-weight:700}
+.service-devices{margin-top:20px;border-top:1px solid #e3e8ef;padding-top:16px}
+.service-devices h3{font-size:15px;margin:0 0 10px}
+.service-device{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #eef1f4;font-size:14px}
+.service-device span{color:#667085;text-align:right}
