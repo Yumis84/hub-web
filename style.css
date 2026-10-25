@@ -64,3 +64,22 @@ body:has(#account:not([hidden])) .card>.brand,body:has(#account:not([hidden])) .
 .service-devices h3{font-size:15px;margin:0 0 10px}
 .service-device{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #eef1f4;font-size:14px}
 .service-device span{color:#667085;text-align:right}
+
+/* QA U1/U2: always-visible logout and discoverable mobile navigation. */
+.cabinet-global-logout{margin-left:auto;border:1px solid #d0d5dd;border-radius:9px;background:#fff;color:#344054;padding:10px 14px;font-size:14px;font-weight:650;cursor:pointer}
+.cabinet-global-logout:focus-visible,.cabinet-more:focus-visible{outline:3px solid #476bb3;outline-offset:2px}
+.cabinet-more{display:none}
+@media(max-width:720px){
+ .cabinet-top{gap:8px}
+ .cabinet-account-label{max-width:30%}
+ .cabinet-global-logout{padding:9px 11px;font-size:13px}
+ .cabinet-bottom{overflow-x:visible;flex-wrap:nowrap;justify-content:space-around;align-items:stretch}
+ .cabinet-bottom .cabinet-link{flex:1 1 0;min-width:0}
+ .cabinet-bottom .cabinet-link:nth-child(n+4){display:none}
+ .cabinet-more{display:block;flex:1 1 0;min-width:0;border:0;background:#f1f5fb;color:#2147a1;font-size:12px;font-weight:750;cursor:pointer}
+ .cabinet-bottom.expanded{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding-top:5px}
+ .cabinet-bottom.expanded .cabinet-link{display:block}
+ .cabinet-bottom.expanded .cabinet-more{min-height:48px}
+ .cabinet{padding-bottom:calc(94px + env(safe-area-inset-bottom))}
+ .cabinet:has(.cabinet-bottom.expanded){padding-bottom:calc(170px + env(safe-area-inset-bottom))}
+}
