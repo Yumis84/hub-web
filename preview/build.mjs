@@ -15,7 +15,7 @@ const previewCSS='.preview-toolbar{background:#eaf0ff;color:#1d2939;padding:14px
 const script=s=>'<script>'+s.replace(/<\/script/gi,'<\\/script')+'</script>';
 let html=read('index.html').replace('<head>','<head><meta http-equiv="Content-Security-Policy" content="'+csp+'"><link rel="icon" href="data:,">');
 html=html.replace(/<link rel="stylesheet"[^>]+>/,'<style>'+css+'\n'+previewCSS+'</style>');
-html=html.replace('<body>','<body>'+toolbar);
+html=html.replace('<body>','<body>'+toolbar).replace('● Hub Core подключён','Демо: подключение к Hub отключено');
 html=html.replace(/<script src="\.\/config\.js[^\"]*"><\/script>/,script(read('preview/transport.js')));
 html=html.replace(/<script src="\.\/app\.js[^\"]*"><\/script>/,script(app));
 html=html.replace(/<script src="\.\/cabinet\.js[^\"]*"><\/script>/,script(cabinet));

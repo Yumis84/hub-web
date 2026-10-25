@@ -83,3 +83,6 @@ body:has(#account:not([hidden])) .card>.brand,body:has(#account:not([hidden])) .
  .cabinet{padding-bottom:calc(94px + env(safe-area-inset-bottom))}
  .cabinet:has(.cabinet-bottom.expanded){padding-bottom:calc(170px + env(safe-area-inset-bottom))}
 }
+
+/* Minimum touch target for account logout across viewports. */
+.cabinet-global-logout{min-width:44px;min-height:44px}

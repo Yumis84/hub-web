@@ -212,11 +212,15 @@
       page.append(notice("Подключение AI-агентов","Существующий мастер подключения сохранён ниже. Статус связи нужно проверять реальным запросом."));
     } else if (id==="services") {
       page.append(notice("Подключённые сервисы","Интеграции используют текущую сессию Hub, RLS и права проектов. Секреты и ответы провайдеров в браузере не отображаются."));
-      renderTuyaServices();
+      if(!byId("account")?.hidden)renderTuyaServices();
     } else if (id==="settings") {
       page.append(notice("Настройки","Настройки аккаунта используют существующую идентификацию Hub. Управление отдельной учётной записью для сервисов не требуется."));
     }
   }
+  addEventListener("hub:authchange",event=>{
+    if(event.detail?.authenticated)render();
+    else {page.replaceChildren();legacy.hidden=true;byId("cabinetAccountLabel").textContent="";}
+  });
   addEventListener("hashchange",render);
   render();
   const email=byId("userEmail");

@@ -45,9 +45,9 @@ async function nav(page,section,width){
     const stats=await page.evaluate(()=>({viewport:innerWidth,doc:document.documentElement.scrollWidth,body:document.body.scrollWidth}));
     assert.ok(stats.doc<=stats.viewport+1&&stats.body<=stats.viewport+1,JSON.stringify(stats));
     await visible(page,'.cabinet-global-logout');
-    if(width<720){await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
+    if(width<720){await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await page.waitForTimeout(100);
      const content=await page.locator(section==='agents'?'#cabinetLegacy':'#cabinetPage').boundingBox();
-     const bottom=await page.locator('#cabinetBottom').boundingBox();assert.ok(content.y+content.height<=bottom.y+1,'bottom navigation covers content');}
+     const bottom=await page.locator('#cabinetBottom').boundingBox();assert.ok(content.y+content.height<=bottom.y+1,'bottom navigation covers content: '+JSON.stringify({content,bottom,scroll:await page.evaluate(()=>({y:scrollY,h:innerHeight,total:document.documentElement.scrollHeight}))}));}
    });
    await check(width+' '+section+' logout clears local session',async()=>{
     await page.locator('.cabinet-global-logout').click();await visible(page,'#auth');
