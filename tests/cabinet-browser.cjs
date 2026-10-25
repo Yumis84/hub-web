@@ -36,7 +36,7 @@ async function nav(page,section,width){
    await more.focus();await page.keyboard.press('Enter');assert.equal(await more.getAttribute('aria-expanded'),'true');
    for(const s of sections)await visible(page,'#cabinetBottom [data-section="'+s+'"]');
    await page.keyboard.press('Shift+Tab');assert.equal(await page.locator(':focus').getAttribute('data-section'),'settings');
-   await page.keyboard.press('Enter');assert.equal(await page.locator('#cabinetHeading').textContent(),'Настройки');
+   await page.keyboard.press('Enter');await page.waitForFunction(()=>document.querySelector('#cabinetHeading')?.textContent==='Настройки');assert.equal(await page.locator('#cabinetHeading').textContent(),'Настройки');
   });
   for(let i=0;i<sections.length;i++){
    const section=sections[i];await nav(page,section,width);
