@@ -27,15 +27,19 @@
     card.append(node("h2","",title),node("p","cabinet-muted",body));
     return card;
   };
+  let sessionGeneration=0;
   const safeMessage = error => {
     const status = Number(error?.status || 0);
     if (status === 401 || status === 403) return "Доступ запрещён. Обновите сессию Hub и проверьте разрешения.";
     return "Сервис временно недоступен. Токены и технические ответы скрыты.";
   };
   async function tuyaRequest(path, options={}) {
+    const generation=sessionGeneration;
     const token = await accessToken();
+    if(byId("account")?.hidden)throw new Error("SESSION_CLOSED");
     const response = await fetch(cfg.supabaseUrl+"/rest/v1/"+path,{
       ...options,
+      signal:AbortSignal.timeout(10_000),
       headers:{
         "Authorization":"Bearer "+token,
         "apikey":cfg.supabasePublishableKey,
@@ -44,6 +48,7 @@
         ...(options.headers||{})
       }
     });
+    if(generation!==sessionGeneration||byId("account")?.hidden)throw new Error("SESSION_CHANGED");
     if (!response.ok) {
       const error = new Error("TUYA_REQUEST_FAILED");
       error.status = response.status;
@@ -87,7 +92,8 @@
       disconnect.disabled=true;
       message.textContent="Отзываю доступ…";
       try {
-        await tuyaRequest("rpc/tuya_connection_revoke_v1",{method:"POST",body:JSON.stringify({p_connection_id:connection.id})});
+        const revoked=await tuyaRequest("rpc/tuya_connection_revoke_v1",{method:"POST",body:JSON.stringify({p_connection_id:connection.id})});
+        if(revoked!==true)throw new Error("TUYA_REVOKE_NOT_CONFIRMED");
         connection=null;
         badge.textContent="Не подключён";
         disconnect.hidden=true;
@@ -107,23 +113,79 @@
           return;
         }
         badge.textContent="Подключён · "+connection.region;
-        connect.hidden=true;
+        connect.hidden=false;
+        connect.textContent="Переподключить";
         disconnect.hidden=false;
         message.textContent="Доступ ограничен текущим пользователем, проектом и разрешениями агентов.";
-        const rowsDevices=await tuyaRequest("tuya_devices?select=device_id,display_name,category,online&connection_id=eq."+encodeURIComponent(connection.id)+"&order=display_name.asc");
+        const rowsDevices=await tuyaRequest("tuya_devices?select=device_id,display_name,category,online,last_seen_at&connection_id=eq."+encodeURIComponent(connection.id)+"&order=display_name.asc");
         const title=node("h3","","Доступные устройства");
         devices.append(title);
         if (!Array.isArray(rowsDevices)||!rowsDevices.length) devices.append(node("p","cabinet-muted","Устройства ещё не синхронизированы."));
         else for(const item of rowsDevices){
           const row=node("div","service-device");
-          row.append(node("strong","",item.display_name||"Устройство"),node("span","",(item.category||"Без категории")+" · "+(item.online?"онлайн":"офлайн")));
+          row.append(node("strong","",item.display_name||"Устройство"),node("span","",(item.category||"Без категории")+" · "+(item.online===true?"онлайн":item.online===false?"офлайн":"состояние неизвестно")));
           devices.append(row);
         }
+        await renderTuyaPermissions(connection,devices);
       } catch(error) {
         badge.textContent="Недоступен";
         message.textContent=safeMessage(error);
       }
     })();
+  }
+  async function renderTuyaPermissions(connection,container) {
+    const panel=node("section","service-permissions");
+    panel.append(node("h3","","Доступ агентов"));
+    const status=node("p","cabinet-muted","Загружаю разрешения…");panel.append(status);container.append(panel);
+    try {
+      const [agents,projects,permissions,inventory]=await Promise.all([
+        tuyaRequest("agents?select=id,name&order=name.asc"),
+        tuyaRequest("project_spaces?select=id,name&status=eq.ACTIVE&order=name.asc"),
+        tuyaRequest("tuya_agent_device_permissions?select=project_space_id,device_id,agent_id,permission&connection_id=eq."+encodeURIComponent(connection.id)+"&revoked_at=is.null"),
+        tuyaRequest("tuya_devices?select=device_id,display_name&connection_id=eq."+encodeURIComponent(connection.id))
+      ]);
+      if(![agents,projects,permissions,inventory].every(Array.isArray))throw new Error("INVALID_RESPONSE");
+      const select=(label,items)=>{
+        const field=node("label","",label),input=node("select","");
+        for(const [value,title]of items){const option=node("option","",title);option.value=value;input.append(option);}
+        field.append(input);return {field,input};
+      };
+      const agent=select("Агент",agents.map(x=>[x.id,x.name||"Агент"]));
+      const project=select("Проект",projects.map(x=>[x.id,x.name||"Проект"]));
+      const device=select("Устройство",inventory.map(x=>[x.device_id,x.display_name||"Устройство"]));
+      const permission=select("Права",[["READ","Только чтение"],["CONTROL","Управление"]]);
+      const form=node("form","service-permission-form"),grant=node("button","service-button","Разрешить");grant.type="submit";
+      grant.disabled=!agents.length||!projects.length||!inventory.length;
+      form.append(agent.field,project.field,device.field,permission.field,grant);panel.append(form);
+      status.textContent="Права выдаются отдельно для каждого проекта, агента и устройства. Команды дополнительно требуют подтверждения владельца.";
+      form.addEventListener("submit",async event=>{
+        event.preventDefault();
+        if(permission.input.value==="CONTROL"&&!confirm("Разрешить этому агенту управление выбранным устройством? Каждая команда по-прежнему требует отдельного подтверждения."))return;
+        grant.disabled=true;
+        try{
+          const changed=await tuyaRequest("rpc/tuya_permission_set_v1",{method:"POST",body:JSON.stringify({p_connection_id:connection.id,p_project_space_id:project.input.value,p_device_id:device.input.value,p_agent_id:agent.input.value,p_permission:permission.input.value,p_revoke:false})});
+          if(changed!==true)throw new Error("TUYA_PERMISSION_NOT_CONFIRMED");
+          panel.remove();await renderTuyaPermissions(connection,container);
+        }catch(error){status.textContent=safeMessage(error);}
+        finally{grant.disabled=false;}
+      });
+      if(!permissions.length)panel.append(node("p","cabinet-muted","Агентам пока не выдан доступ."));
+      for(const entry of permissions){
+        const row=node("div","service-device");
+        const name=agents.find(x=>x.id===entry.agent_id)?.name||"Агент";
+        const deviceName=inventory.find(x=>x.device_id===entry.device_id)?.display_name||"Устройство";
+        row.append(node("span","",name+" · "+deviceName+" · "+entry.permission));
+        const revoke=node("button","service-danger","Отозвать");revoke.type="button";row.append(revoke);panel.append(row);
+        revoke.addEventListener("click",async()=>{
+          revoke.disabled=true;
+          try{
+            const changed=await tuyaRequest("rpc/tuya_permission_set_v1",{method:"POST",body:JSON.stringify({p_connection_id:connection.id,p_project_space_id:entry.project_space_id,p_device_id:entry.device_id,p_agent_id:entry.agent_id,p_permission:entry.permission,p_revoke:true})});
+            if(changed!==true)throw new Error("TUYA_PERMISSION_NOT_CONFIRMED");
+            row.remove();status.textContent="Разрешение отозвано. Следующая команда будет проверена сервером заново.";
+          }catch(error){status.textContent=safeMessage(error);revoke.disabled=false;}
+        });
+      }
+    }catch(error){status.textContent="Управление разрешениями недоступно. "+safeMessage(error);}
   }
   function active() {
     const id = location.hash.replace(/^#\/?/,"").split("/")[0];
@@ -218,6 +280,7 @@
     }
   }
   addEventListener("hub:authchange",event=>{
+    sessionGeneration++;
     if(event.detail?.authenticated)render();
     else {page.replaceChildren();legacy.hidden=true;byId("cabinetAccountLabel").textContent="";}
   });
@@ -226,3 +289,4 @@
   const email=byId("userEmail");
   if(email) new MutationObserver(()=>{byId("cabinetAccountLabel").textContent=email.textContent;}).observe(email,{childList:true,subtree:true});
 })();
+

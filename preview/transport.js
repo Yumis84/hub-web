@@ -4,12 +4,12 @@
   const PREFIX='hub_preview_';
   const user={id:'00000000-0000-4000-8000-000000000001',email:'demo@preview.invalid'};
   let scenario=new URLSearchParams(location.search).get('scenario')||'empty';
-  const allowed=['empty','connected','forbidden','error','loading','invalid','expired'];
+  const allowed=['empty','connected','forbidden','error','loading','invalid','expired','revoke-failed'];
   if(!allowed.includes(scenario))scenario='empty';
   const reply=(data,status=200)=>Promise.resolve(new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}}));
   const token=(exp)=>'preview.'+btoa(JSON.stringify({sub:user.id,exp}))+'.not-a-signed-token';
   const session=()=>({access_token:token(Math.floor(Date.now()/1000)+3600),refresh_token:'synthetic-preview-only',user});
-  let disconnected=false;
+  let disconnected=false;const permissions=[];
   const calls=[];
   window.HUB_CONFIG=Object.freeze({supabaseUrl:'https://preview.invalid',supabasePublishableKey:'preview-only-not-a-key',mode:'preview'});
   window.fetch=(input,options={})=>{
@@ -19,12 +19,21 @@
     if(u.pathname==='/auth/v1/user')return scenario==='expired'?reply({msg:'Synthetic expired session'},401):reply(user);
     if(u.pathname==='/auth/v1/token')return ['invalid','expired'].includes(scenario)?reply({msg:'Неверные тестовые данные'},401):reply(session());
     if(u.pathname==='/auth/v1/signup'||u.pathname==='/auth/v1/resend')return reply({user});
-    if(u.pathname==='/rest/v1/rpc/tuya_connection_revoke_v1'){disconnected=true;return reply(null);}
+    if(u.pathname==='/rest/v1/rpc/tuya_connection_revoke_v1'){if(scenario==='revoke-failed')return reply(false);disconnected=true;return reply(true);}
     if(u.pathname==='/rest/v1/service_connections'){
       if(scenario==='loading')return new Promise(resolve=>setTimeout(()=>resolve(new Response('[]',{status:200})),800));
       if(scenario==='forbidden')return reply({private:'not for UI'},403);
       if(scenario==='error')return reply({private:'not for UI'},500);
-      return reply(scenario==='connected'&&!disconnected?[{id:'00000000-0000-4000-8000-000000000002',region:'DEMO',status:'ACTIVE'}]:[]);
+      return reply(['connected','revoke-failed'].includes(scenario)&&!disconnected?[{id:'00000000-0000-4000-8000-000000000002',region:'DEMO',status:'ACTIVE'}]:[]);
+    }
+    if(u.pathname==='/rest/v1/agents')return reply([{id:'00000000-0000-4000-8000-000000000003',name:'Демо-агент'}]);
+    if(u.pathname==='/rest/v1/project_spaces')return reply([{id:'00000000-0000-4000-8000-000000000004',name:'Тестовый проект'}]);
+    if(u.pathname==='/rest/v1/tuya_agent_device_permissions')return reply(permissions);
+    if(u.pathname==='/rest/v1/rpc/tuya_permission_set_v1'){
+      const p=JSON.parse(options.body);
+      if(p.p_revoke){const i=permissions.findIndex(x=>x.agent_id===p.p_agent_id&&x.device_id===p.p_device_id&&x.permission===p.p_permission);if(i<0)return reply(false);permissions.splice(i,1);}
+      else permissions.push({project_space_id:p.p_project_space_id,agent_id:p.p_agent_id,device_id:p.p_device_id,permission:p.p_permission});
+      return reply(true);
     }
     if(u.pathname==='/rest/v1/tuya_devices')return reply([{device_id:'synthetic-lamp',display_name:'Синтетическая лампа',category:'Тест',online:true}]);
     return reply({error:'PREVIEW_ROUTE_DISABLED'},403);
@@ -38,7 +47,7 @@
   window.HUB_PREVIEW=Object.freeze({
     calls,
     scenario:()=>scenario,
-    setScenario(value){if(!allowed.includes(value))throw Error('PREVIEW_SCENARIO_INVALID');scenario=value;disconnected=false;},
+    setScenario(value){if(!allowed.includes(value))throw Error('PREVIEW_SCENARIO_INVALID');scenario=value;disconnected=false;permissions.splice(0);},
     seedExpired(){clear();localStorage.setItem(PREFIX+'access_token',token(1));localStorage.setItem(PREFIX+'refresh_token','synthetic-preview-only');localStorage.setItem(PREFIX+'user',JSON.stringify(user));},
     clear
   });
@@ -53,3 +62,4 @@
   const help=document.querySelector('.helpBody');
   if(help)help.textContent='В предпросмотре подключения отключены. Проверяются только интерфейс и синтетические состояния.';
 })();
+
