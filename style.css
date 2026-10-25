@@ -86,3 +86,11 @@ body:has(#account:not([hidden])) .card>.brand,body:has(#account:not([hidden])) .
 
 /* Minimum touch target for account logout across viewports. */
 .cabinet-global-logout{min-width:44px;min-height:44px}
+
+
+.service-permissions{margin-top:24px;border-top:1px solid #e3e8ef;padding-top:16px}
+.service-permission-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.service-permission-form label{min-width:0;margin:0;font-size:14px}
+.service-permission-form select{width:100%;min-height:44px;min-width:0;border:1px solid #ccd2d8;border-radius:8px;padding:8px;background:white;color:#344054;font:inherit}
+.service-permission-form button,.service-permissions .service-danger{min-height:44px}
+@media(max-width:480px){.service-permission-form{grid-template-columns:1fr}.service-device{flex-wrap:wrap;overflow-wrap:anywhere}}

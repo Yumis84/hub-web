@@ -71,8 +71,24 @@ async function nav(page,section,width){
    if(scenario==='connected')await visible(page,'.service-device');
   });
  }
+ await check('synthetic device permission grant and revoke use scoped RPC',async()=>{
+  await page.locator('.service-permission-form').waitFor();
+  await page.locator('.service-permission-form button').click();
+  await page.getByRole('button',{name:'Отозвать',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Отозвать',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.service-permissions .cabinet-muted')?.textContent.includes('Разрешение отозвано'));
+  const calls=await page.evaluate(()=>HUB_PREVIEW.calls.filter(x=>x.path==='/rest/v1/rpc/tuya_permission_set_v1'));
+  assert.equal(calls.length,2);
+ });
  page.on('dialog',d=>d.accept());
  await check('synthetic service revoke uses confirmation and resets UI',async()=>{await page.locator('.service-danger').click();await page.waitForFunction(()=>document.querySelector('.service-badge')?.textContent==='Не подключён');assert.equal(await page.locator('.service-device').count(),0);});
+ await page.goto(url+'?scenario=revoke-failed#/services');await login(page);
+ await check('false revoke response cannot appear disconnected',async()=>{
+  await page.waitForFunction(()=>document.querySelector('.service-badge')?.textContent==='Подключён · DEMO');
+  await page.locator('.service-danger').first().click();
+  await page.waitForFunction(()=>document.querySelector('.service-message')?.textContent.includes('Сервис временно недоступен'));
+  assert.equal(await page.locator('.service-badge').textContent(),'Подключён · DEMO');
+ });
  await page.goto(url+'?scenario=invalid');
  await check('invalid login stays signed out with visible error',async()=>{await page.locator('#previewEnter').click();await page.waitForFunction(()=>document.querySelector('#message')?.textContent.includes('Ошибка входа'));await visible(page,'#auth');assert.equal(await page.locator('#account').isVisible(),false);});
  await page.goto(url+'?scenario=empty');await login(page);
@@ -84,3 +100,4 @@ async function nav(page,section,width){
  const result={environment:'Chromium with synthetic transport; no signed OAuth',pass:checks.filter(x=>x.status==='PASS').length,fail:checks.filter(x=>x.status==='FAIL').length,checks};
  writeFileSync(resolve(artifact,'results.json'),JSON.stringify(result,null,2));console.log(JSON.stringify({pass:result.pass,fail:result.fail}));if(result.fail)process.exitCode=1;
 });
+
