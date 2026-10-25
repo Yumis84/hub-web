@@ -1,0 +1,41 @@
+name: Hub Web isolated browser acceptance
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'app.js'
+      - 'cabinet.js'
+      - 'style.css'
+      - 'preview/**'
+      - 'tests/cabinet-browser.cjs'
+      - '.github/workflows/cabinet-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pinned browser driver; no application dependencies or secrets
+        run: npm install --prefix /tmp/hub-web-browser --no-save --ignore-scripts playwright@1.56.1
+      - name: Build network-disabled synthetic interactive preview
+        run: node preview/build.mjs
+      - name: Chromium UI at 320, 390 and 1280 pixels
+        env:
+          HUB_PLAYWRIGHT_MODULE: /tmp/hub-web-browser/node_modules/playwright
+          HUB_CHROME: /usr/bin/google-chrome
+        run: timeout 120s node tests/cabinet-browser.cjs
+      - name: Screenshots, actual test outcomes and preview for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cabinet-isolated-preview
+          path: |
+            browser-evidence/
+            preview-dist/
+          retention-days: 14

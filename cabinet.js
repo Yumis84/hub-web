@@ -139,6 +139,24 @@
     nav.append(link(item));
     bottom.append(link(item));
   }
+  const more = node("button","cabinet-more","Ещё · 7 разделов");
+  more.type="button";
+  more.setAttribute("aria-expanded","false");
+  more.setAttribute("aria-controls","cabinetBottom");
+  more.addEventListener("click",()=>{
+    const expanded=bottom.classList.toggle("expanded");
+    more.setAttribute("aria-expanded",String(expanded));
+    more.textContent=expanded?"Свернуть":"Ещё · 7 разделов";
+  });
+  bottom.append(more);
+  const header=byId("cabinetHeading")?.parentElement;
+  const logoutButton=byId("logout");
+  if(header && logoutButton){
+    const exit=node("button","cabinet-global-logout","Выйти");
+    exit.type="button";
+    exit.addEventListener("click",()=>logoutButton.click());
+    header.append(exit);
+  }
   function render() {
     const id = active();
     const item = sections.find(x=>x.id===id);
@@ -150,6 +168,7 @@
       else a.removeAttribute("aria-current");
     }
     page.replaceChildren();
+    if(sections.findIndex(x=>x.id===id)>2){bottom.classList.add("expanded");more.setAttribute("aria-expanded","true");more.textContent="Свернуть";}
     legacy.hidden = id!=="agents";
     if (id==="today") {
       const tabs = node("div","cabinet-tabs");
@@ -193,11 +212,15 @@
       page.append(notice("Подключение AI-агентов","Существующий мастер подключения сохранён ниже. Статус связи нужно проверять реальным запросом."));
     } else if (id==="services") {
       page.append(notice("Подключённые сервисы","Интеграции используют текущую сессию Hub, RLS и права проектов. Секреты и ответы провайдеров в браузере не отображаются."));
-      renderTuyaServices();
+      if(!byId("account")?.hidden)renderTuyaServices();
     } else if (id==="settings") {
       page.append(notice("Настройки","Настройки аккаунта используют существующую идентификацию Hub. Управление отдельной учётной записью для сервисов не требуется."));
     }
   }
+  addEventListener("hub:authchange",event=>{
+    if(event.detail?.authenticated)render();
+    else {page.replaceChildren();legacy.hidden=true;byId("cabinetAccountLabel").textContent="";}
+  });
   addEventListener("hashchange",render);
   render();
   const email=byId("userEmail");
