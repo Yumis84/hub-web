@@ -68,7 +68,7 @@ async function nav(page,section,width){
   await check('services '+scenario+' safe state',async()=>{await page.waitForFunction(x=>document.querySelector('.service-badge')?.textContent===x,expected);
    assert.ok(!(await page.locator('#cabinetPage').textContent()).includes('not for UI'));
    if(scenario==='forbidden')assert.match(await page.locator('.service-message').textContent(),/Доступ запрещён/);
-   if(scenario==='connected')await visible(page,'.service-device');
+   if(scenario==='connected'){await page.locator('.service-device').first().waitFor({state:'visible'});await visible(page,'.service-device');}
   });
  }
  await check('synthetic device permission grant and revoke use scoped RPC',async()=>{
