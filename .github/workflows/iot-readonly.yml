@@ -1,0 +1,39 @@
+name: IoT Hub isolated browser acceptance
+on:
+  pull_request:
+    paths:
+      - 'devices.js'
+      - 'cabinet.js'
+      - 'style.css'
+      - 'index.html'
+      - 'preview/**'
+      - 'tests/devices-browser.cjs'
+      - '.github/workflows/iot-readonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  iot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/hub-web-browser --no-save --ignore-scripts playwright@1.56.1
+      - run: node --check devices.js && node --check cabinet.js && node preview/build.mjs
+      - name: Actual browser synthetic IoT scenarios
+        env:
+          HUB_PLAYWRIGHT_MODULE: /tmp/hub-web-browser/node_modules/playwright
+          HUB_CHROME: /usr/bin/google-chrome
+        run: timeout 120s node tests/devices-browser.cjs
+      - name: Reviewable offline preview and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iot-isolated-preview
+          path: |
+            iot-evidence/
+            preview-dist/
+          retention-days: 14

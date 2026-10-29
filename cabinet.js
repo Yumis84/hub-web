@@ -154,6 +154,7 @@
       const project=select("Проект",projects.map(x=>[x.id,x.name||"Проект"]));
       const device=select("Устройство",inventory.map(x=>[x.device_id,x.display_name||"Устройство"]));
       const permission=select("Права",[["READ","Только чтение"],["CONTROL","Управление"]]);
+      permission.input.querySelector('option[value="CONTROL"]').disabled=true;
       const form=node("form","service-permission-form"),grant=node("button","service-button","Разрешить");grant.type="submit";
       grant.disabled=!agents.length||!projects.length||!inventory.length;
       form.append(agent.field,project.field,device.field,permission.field,grant);panel.append(form);
@@ -186,6 +187,34 @@
         });
       }
     }catch(error){status.textContent="Управление разрешениями недоступно. "+safeMessage(error);}
+  }
+  function renderAuthorizedData(kind,limit=20) {
+    const root=node("section","cabinet-panel cabinet-data");page.append(root);
+    const status=node("p","cabinet-muted","Загружаю данные вашего аккаунта…"),items=node("div","cabinet-data-list");root.append(status,items);
+    const generation=sessionGeneration;let cursor=null,loading=false;
+    const more=node("button","iot-button","Показать ещё");more.type="button";more.hidden=true;root.append(more);
+    const fresh=()=>root.isConnected&&generation===sessionGeneration&&!byId("account")?.hidden;
+    async function load(){if(loading)return;loading=true;more.disabled=true;
+      try{
+        const result=kind==="projects"?await tuyaRequest("rpc/project_space_list_v1",{method:"POST",body:"{}"}):kind==="agents"?await tuyaRequest("agents?select=id,name&order=name.asc"):kind==="community"?await tuyaRequest("rpc/consilium_commons_list_v1",{method:"POST",body:JSON.stringify({p_query:"",p_limit:limit})}):await tuyaRequest("rpc/inbox_page_v2",{method:"POST",body:JSON.stringify({p_limit:limit,p_cursor:cursor})});
+        if(!fresh())return;const rows=Array.isArray(result)?result:result?.items;
+        if(!Array.isArray(rows)||rows.length>100)throw new Error("INVALID_RESPONSE");
+        for(const item of rows){
+          const row=node("article","cabinet-data-row");
+          row.append(node("strong","",kind==="inbox"?(item.item_type||item.kind||"Уведомление"):(item.name||item.title||"Без названия")));
+          if(kind==="projects"){
+            row.append(node("span","cabinet-muted",item.status||"Статус не указан"));const open=node("button","iot-button","Открыть проект");open.type="button";
+            open.onclick=async()=>{open.disabled=true;try{const d=await tuyaRequest("rpc/project_space_get",{method:"POST",body:JSON.stringify({p_project_space_id:item.id})});if(!fresh())return;row.append(node("p","",d?.description||"Описание не добавлено."));}catch(e){if(fresh())row.append(node("p","",safeMessage(e)));}finally{open.disabled=false;}};row.append(open);
+          }else if(kind==="inbox")row.append(node("span","cabinet-muted",(item.priority||"NORMAL")+" · "+(item.created_at?new Date(item.created_at).toLocaleString("ru-RU"):"Дата не указана")),node("span","cabinet-muted","Прочтение и принятие поручения выполняются отдельно. Автоматического ACK нет."));
+          else if(kind==="agents")row.append(node("span","cabinet-muted","Зарегистрированный агент · доступность исполнения не проверена"));
+          else row.append(node("p","cabinet-muted",item.summary||"Опубликованный материал. Приватный контекст сюда не переносится."));
+          items.append(row);
+        }
+        cursor=!Array.isArray(result)&&result?.next_cursor||null;more.hidden=kind!=="inbox"||cursor===null;
+        status.textContent=items.childNodes.length?"Получены данные с проверкой доступа на сервере."+(cursor?" Это первая часть очереди; продолжение загружается явно.":""):"API не вернул доступных записей.";
+      }catch(e){if(fresh()){status.textContent=safeMessage(e);more.hidden=true;}}finally{loading=false;more.disabled=false;}
+    }
+    more.onclick=load;load();
   }
   function active() {
     const id = location.hash.replace(/^#\/?/,"").split("/")[0];
@@ -252,6 +281,7 @@
       panel.querySelector("p").id="cabinetInboxMessage";
       panel.setAttribute("aria-label","Состояние глобального Inbox");
       page.append(panel);
+      renderAuthorizedData("inbox",5);
       const actions=node("div","cabinet-action-grid");
       for (const [title,description,href] of [
         ["Мои проекты","Продолжить работу в доступных пространствах","#/projects"],
@@ -265,18 +295,22 @@
       }
       page.append(node("h2","cabinet-section-title","Быстрый переход"),actions);
     } else if (id==="inbox") {
-      page.append(notice("Входящие","Единый Inbox использует существующие права Hub. Неподтверждённые и чужие элементы не отображаются."));
+      page.append(notice("Входящие","Проверка доступа выполняется сервером. Чтение списка не подтверждает и не принимает поручения."));renderAuthorizedData("inbox");
     } else if (id==="community") {
-      page.append(notice("Сообщество","Общие пространства будут показаны только после проверки membership и действующего доступа."));
+      page.append(notice("Сообщество","Только явно опубликованные материалы, разрешённые текущему аккаунту."));renderAuthorizedData("community");
     } else if (id==="projects") {
-      page.append(notice("Мои проекты","Список проектов будет доступен после проверки прав пользовательского JWT. Чужие проекты не отображаются."));
+      page.append(notice("Мои проекты","Приватные пространства загружаются с существующими правами Hub."));renderAuthorizedData("projects");
     } else if (id==="agents") {
-      page.append(notice("Подключение AI-агентов","Существующий мастер подключения сохранён ниже. Статус связи нужно проверять реальным запросом."));
+      renderAuthorizedData("agents");page.append(notice("Подключение AI-агентов","Существующий мастер подключения сохранён ниже. Статус связи нужно проверять реальным запросом."));
     } else if (id==="services") {
       page.append(notice("Подключённые сервисы","Интеграции используют текущую сессию Hub, RLS и права проектов. Секреты и ответы провайдеров в браузере не отображаются."));
-      if(!byId("account")?.hidden)renderTuyaServices();
+      if(!byId("account")?.hidden){
+        const g=sessionGeneration;
+        window.HubDevices?.mount({container:page,request:tuyaRequest,isCurrent:()=>g===sessionGeneration&&!byId("account")?.hidden});
+        renderTuyaServices();
+      }
     } else if (id==="settings") {
-      page.append(notice("Настройки","Настройки аккаунта используют существующую идентификацию Hub. Управление отдельной учётной записью для сервисов не требуется."));
+      page.append(notice("Настройки","Текущая подтверждённая сессия: "+(byId("userEmail")?.textContent||"—")+". Для смены аккаунта используйте «Выйти». Пароли сервисов здесь не хранятся."));
     }
   }
   addEventListener("hub:authchange",event=>{
