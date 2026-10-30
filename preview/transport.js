@@ -10,6 +10,7 @@
   const token=(exp)=>'preview.'+btoa(JSON.stringify({sub:user.id,exp}))+'.not-a-signed-token';
   const session=()=>({access_token:token(Math.floor(Date.now()/1000)+3600),refresh_token:'synthetic-preview-only',user});
   let disconnected=false;const permissions=[];
+  const mcpChecks=new Map(),mcpConnections=new Map();
   const deviceStores=new Map(),proofs=new Map(),replays=new Map();
   const devicesFor=()=>{if(!deviceStores.has(user.id))deviceStores.set(user.id,[]);return deviceStores.get(user.id);};
   const fixture=()=>({id:'demo-device',provider:'TUYA',category:'home',type:'Лампа',name:'Синтетическая лампа IoT',network:scenario==='offline'?'offline':'online',authorization:scenario==='unauthorized'?'unauthorized':'authorized',readiness:scenario==='unavailable'?'unavailable':'ready',read_allowed:scenario!=='unauthorized',last_success_at:'2026-10-29T10:00:00Z',capabilities:['status','diagnostics','history'],history:[{at:'2026-10-29T10:00:00Z',action:'CHECK',result:'SYNTHETIC'}]});
@@ -27,6 +28,16 @@
     if(u.pathname==='/rest/v1/rpc/project_space_list_v1')return reply([{id:'synthetic-project',name:'Синтетический проект',status:'ACTIVE'}]);
     if(u.pathname==='/rest/v1/rpc/project_space_get')return reply({description:'Только демонстрационный контекст.'});
     if(u.pathname==='/rest/v1/rpc/consilium_commons_list_v1')return reply([]);
+    if(u.pathname.startsWith('/rest/v1/rpc/mcp_connection_')){
+      const op=u.pathname.split('/').at(-1),p=JSON.parse(options.body||'{}');if(scenario==='error')return reply({},503);if(scenario==='forbidden')return reply({},403);
+      if(op==='mcp_connection_list_v1')return reply({items:[...mcpConnections.values()].filter(x=>x.owner===user.id&&!x.revoked).map(({owner,...x})=>x)});
+      if(op==='mcp_connection_check_v1'){if(!/^https:\/\//.test(p.p_url)||/127\.0\.0\.1|10\.0\.0\.1/.test(p.p_url))return reply({},400);const r={check_id:crypto.randomUUID(),owner:user.id,name:p.p_name,url:p.p_url,auth:p.p_auth,status:p.p_auth==='oauth'?'AUTH_REQUIRED':'READY',oauth_available:false,tools:[{name:'read_public_docs',description:'Синтетическая возможность <img src=x onerror=alert(1)>',read_only_hint:true}]};mcpChecks.set(r.check_id,r);return reply(r);}
+      if(op==='mcp_connection_confirm_v1'){const c=mcpChecks.get(p.p_check_id);if(!c||c.owner!==user.id||c.status!=='READY'||p.p_read!==true)return reply({},403);if(!c.saved){c.saved=crypto.randomUUID();mcpConnections.set(c.saved,{...c,id:c.saved,last_checked_at:new Date().toISOString(),control:false});}return reply({id:c.saved});}
+      const c=mcpConnections.get(p.p_connection_id);if(!c||c.owner!==user.id||c.revoked)return reply({},403);
+      if(op==='mcp_connection_refresh_v1')return reply({status:c.status});
+      if(op==='mcp_connection_revoke_v1'){if(scenario==='revoke-failed')return reply(false);c.revoked=true;return reply(true);}
+      return reply({},403);
+    }
     if(u.pathname.startsWith('/rest/v1/rpc/device_')){
       const op=u.pathname.split('/').at(-1),p=JSON.parse(options.body||'{}');
       if(scenario==='loading')return new Promise(resolve=>setTimeout(()=>resolve(new Response(JSON.stringify({items:inventory()}))),800));
