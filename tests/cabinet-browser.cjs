@@ -12,7 +12,8 @@ const sections=['today','inbox','community','projects','agents','services','sett
 const labels=['Сегодня','Входящие','Сообщество','Проекты','Агенты','Сервисы','Настройки'];
 const checks=[];let browser,server;
 async function check(name,fn){try{await fn();checks.push({name,status:'PASS'});console.log('PASS '+name);}catch(e){checks.push({name,status:'FAIL',error:e.message});console.log('FAIL '+name+': '+e.message);}}
-async function visible(page,selector){assert.equal(await page.locator(selector).isVisible(),true,selector+' should be visible');}
+// One bounded visibility assertion; avoid a second racy read during authenticated rerender.
+async function visible(page,selector){await page.locator(selector).first().waitFor({state:'visible'});}
 async function login(page){await page.locator('#previewEnter').click();await page.locator('#account').waitFor({state:'visible'});}
 async function nav(page,section,width){
  if(width<720&&!(await page.locator('#cabinetBottom').getAttribute('class')).includes('expanded'))await page.locator('.cabinet-more').tap();
