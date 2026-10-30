@@ -58,9 +58,10 @@
    const title=el('h3','','Добавить устройство');title.id='iotWizardTitle';const body=el('div'),step=el('p','iot-step'),feedback=el('p','iot-message');feedback.setAttribute('role','status');
    const close=button('Закрыть',()=>dialog.close());dialog.append(title,step,body,feedback,close);document.body.append(dialog);
    let selected=providers[0],connection=null,proof=null,currentStep=0,pending=false,choices=[],requestKey=crypto.randomUUID();
+   const synologyGuide=()=>{const guide=el('section','iot-synology-guide');guide.hidden=selected.id!=='SYNOLOGY';guide.append(el('h4','','Synology ↔ ваш ChatGPT'));const steps=el('ol');for(const t of ['В ChatGPT подключите существующий AI Agent Hub и войдите через OAuth Hub. Доступность custom MCP зависит от аккаунта и политик workspace.','Выберите свой NAS из подключений Connection Broker. Каждый NAS имеет отдельную привязку. Доступ в ChatGPT сам по себе не подтверждает владение NAS.','Владелец должен подтвердить привязку на NAS через поддерживаемый адаптер. Если такого подтверждения нет, сохранение недоступно.','Разрешите только READ. Доступ своему агенту ChatGPT выдаётся отдельно; CONTROL здесь выключено.','Отзыв в Hub закрывает доступ к NAS через Hub. Отключение приложения ChatGPT выполняется отдельно.'])steps.append(el('li','',t));guide.append(steps,el('p','cabinet-muted','Пароль ChatGPT, пароль DSM и токены сюда вводить не нужно. Текущий MCP без подтверждения владельца не подходит для первичной регистрации.'));return guide;};
    const choose=()=>{step.textContent='Шаг 1 из 4 · Тип и способ подключения';body.replaceChildren();const select=el('select');select.setAttribute('aria-label','Тип устройства');for(const p of providers){const o=el('option','',p.name);o.value=p.id;select.append(o);}select.value=selected.id;
-    const note=el('p','cabinet-muted',selected.note);select.onchange=()=>{selected=providers.find(p=>p.id===select.value);note.textContent=selected.note;};
-    body.append(select,note,el('p','','Пароли, ключи и токены в этом мастере не запрашиваются.'),button('Продолжить',discover));};
+    const note=el('p','cabinet-muted',selected.note),guide=synologyGuide();select.onchange=()=>{selected=providers.find(p=>p.id===select.value);note.textContent=selected.note;guide.hidden=selected.id!=='SYNOLOGY';};
+    body.append(select,note,guide,el('p','','Пароли, ключи и токены в этом мастере не запрашиваются.'),button('Продолжить',discover));};
    async function discover(){if(pending)return;pending=true;feedback.textContent='Проверяю доступные подключения…';
     try{const response=await rpc('device_connection_options_v1',{p_provider:selected.id});if(!dialog.open)return;choices=Array.isArray(response?.items)?response.items:[];
      currentStep=1;step.textContent='Шаг 2 из 4 · Существующее подключение';body.replaceChildren();
@@ -70,8 +71,8 @@
    }
    async function verify(id){if(pending)return;pending=true;feedback.textContent='Проверяю сеть и авторизацию…';
     try{const result=await rpc('device_connection_verify_v1',{p_connection_id:id,p_provider:selected.id});if(!dialog.open)return;
-     if(result?.network!=='online'||result.authorization!=='authorized'||typeof result.proof_id!=='string')throw Error('VERIFICATION_REQUIRED');
-     connection=id;proof=result.proof_id;requestKey=crypto.randomUUID();currentStep=2;step.textContent='Шаг 3 из 4 · Разрешения';body.replaceChildren(badges(result));
+     if(result?.network!=='online'||result.authorization!=='authorized'||typeof result.proof_id!=='string'||(selected.id==='SYNOLOGY'&&result.owner_confirmed!==true))throw Error('VERIFICATION_REQUIRED');
+     connection=id;proof=result.proof_id;requestKey=crypto.randomUUID();currentStep=2;step.textContent='Шаг 3 из 4 · Разрешения';body.replaceChildren(badges(result));if(selected.id==='SYNOLOGY')body.append(el('p','iot-owner-confirmed','Владение этим NAS подтверждено сервером. Привязка проверяется при каждом обращении.'));
      const read=el('label','iot-check'),checkbox=el('input');checkbox.type='checkbox';checkbox.checked=false;read.append(checkbox,document.createTextNode(' Разрешить READ — диагностику и чтение статуса'));
      const control=el('label','iot-check'),disabled=el('input');disabled.type='checkbox';disabled.disabled=true;control.append(disabled,document.createTextNode(' CONTROL недоступно на этом этапе'));
      const save=button('Сохранить подключение',()=>saveLink(checkbox.checked));save.disabled=true;checkbox.onchange=()=>{save.disabled=!checkbox.checked;};body.append(read,control,save,button('Назад',discover));feedback.textContent='Привязка не выдаёт доступ агентам автоматически.';

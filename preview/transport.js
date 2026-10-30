@@ -4,7 +4,7 @@
   const PREFIX='hub_preview_';
   const user={id:'00000000-0000-4000-8000-000000000001',email:'demo@preview.invalid'};
   let scenario=new URLSearchParams(location.search).get('scenario')||'empty';
-  const allowed=['empty','connected','forbidden','error','loading','invalid','expired','revoke-failed','offline','unauthorized','unavailable'];
+  const allowed=['empty','connected','forbidden','error','loading','invalid','expired','revoke-failed','offline','unauthorized','unavailable','nas-unconfirmed'];
   if(!allowed.includes(scenario))scenario='empty';
   const reply=(data,status=200)=>Promise.resolve(new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}}));
   const token=(exp)=>'preview.'+btoa(JSON.stringify({sub:user.id,exp}))+'.not-a-signed-token';
@@ -13,7 +13,7 @@
   const deviceStores=new Map(),proofs=new Map(),replays=new Map();
   const devicesFor=()=>{if(!deviceStores.has(user.id))deviceStores.set(user.id,[]);return deviceStores.get(user.id);};
   const fixture=()=>({id:'demo-device',provider:'TUYA',category:'home',type:'Лампа',name:'Синтетическая лампа IoT',network:scenario==='offline'?'offline':'online',authorization:scenario==='unauthorized'?'unauthorized':'authorized',readiness:scenario==='unavailable'?'unavailable':'ready',read_allowed:scenario!=='unauthorized',last_success_at:'2026-10-29T10:00:00Z',capabilities:['status','diagnostics','history'],history:[{at:'2026-10-29T10:00:00Z',action:'CHECK',result:'SYNTHETIC'}]});
-  const inventory=()=>{const own=devicesFor();return [...(['connected','offline','unauthorized','unavailable','revoke-failed'].includes(scenario)&&!disconnected&&user.id.endsWith('001')?[fixture()]:[]),...own].filter(x=>!x.revoked);};
+  const inventory=()=>{const own=devicesFor();return [...(['connected','offline','unauthorized','unavailable','nas-unconfirmed','revoke-failed'].includes(scenario)&&!disconnected&&user.id.endsWith('001')?[fixture()]:[]),...own].filter(x=>!x.revoked);};
   const calls=[];
   window.HUB_CONFIG=Object.freeze({supabaseUrl:'https://preview.invalid',supabasePublishableKey:'preview-only-not-a-key',mode:'preview'});
   window.fetch=(input,options={})=>{
@@ -33,17 +33,17 @@
       if(scenario==='forbidden')return reply({error:'PRIVATE_SERVER_DETAIL_SENTINEL'},403);
       if(scenario==='error')return reply({error:'PRIVATE_SERVER_DETAIL_SENTINEL'},500);
       if(op==='device_inventory_v1')return reply({items:inventory(),has_more:false});
-      if(op==='device_connection_options_v1')return reply({items:p.p_provider==='TUYA'&&user.id.endsWith('001')?[{id:'owned-tuya-connection',name:'Синтетическое подключение Tuya'}]:[]});
+      if(op==='device_connection_options_v1')return reply({items:p.p_provider==='SYNOLOGY'?(user.id.endsWith('001')?[{id:'owned-nas-one',name:'Синтетический NAS 1'},{id:'owned-nas-two',name:'Синтетический NAS 2'}]:[{id:'second-owner-nas',name:'NAS второго тестового пользователя'}]):p.p_provider==='TUYA'&&user.id.endsWith('001')?[{id:'owned-tuya-connection',name:'Синтетическое подключение Tuya'}]:[]});
       if(op==='device_connection_verify_v1'){
-        if(p.p_provider!=='TUYA'||p.p_connection_id!=='owned-tuya-connection'||!user.id.endsWith('001'))return reply({},403);
-        const id=crypto.randomUUID();proofs.set(id,{owner:user.id,connection:p.p_connection_id,until:Date.now()+60000});return reply({network:'online',authorization:'authorized',readiness:'ready',proof_id:id});
+        const own=p.p_provider==='SYNOLOGY'?(user.id.endsWith('001')?['owned-nas-one','owned-nas-two']:['second-owner-nas']):p.p_provider==='TUYA'&&user.id.endsWith('001')?['owned-tuya-connection']:[];if(!own.includes(p.p_connection_id))return reply({},403);
+        const id=crypto.randomUUID();proofs.set(id,{owner:user.id,connection:p.p_connection_id,provider:p.p_provider,until:Date.now()+60000});return reply({network:'online',authorization:'authorized',readiness:'ready',proof_id:id,...(p.p_provider==='SYNOLOGY'?{owner_confirmed:scenario!=='nas-unconfirmed'}:{})});
       }
       if(op==='device_register_existing_v1'){
         const key=user.id+':'+p.p_request_key;
         if(replays.has(key))return reply(replays.get(key));
         const proof=proofs.get(p.p_proof_id);
-        if(!proof||proof.owner!==user.id||proof.connection!==p.p_connection_id||proof.until<Date.now()||p.p_read!==true||p.p_provider!=='TUYA')return reply({},403);
-        proofs.delete(p.p_proof_id);const d={...fixture(),id:crypto.randomUUID(),name:'Синтетическое добавленное устройство'};devicesFor().push(d);replays.set(key,{id:d.id});return reply({id:d.id});
+        if(!proof||proof.owner!==user.id||proof.connection!==p.p_connection_id||proof.until<Date.now()||p.p_read!==true||p.p_provider!==proof.provider||(p.p_provider==='SYNOLOGY'&&scenario==='nas-unconfirmed'))return reply({},403);
+        proofs.delete(p.p_proof_id);const d={...fixture(),id:crypto.randomUUID(),name:p.p_provider==='SYNOLOGY'?'Синтетический NAS '+(p.p_connection_id==='owned-nas-two'?'2':'1'):'Синтетическое добавленное устройство',...(p.p_provider==='SYNOLOGY'?{provider:'SYNOLOGY',category:'network',type:'NAS'}:{})};devicesFor().push(d);replays.set(key,{id:d.id});return reply({id:d.id});
       }
       const d=inventory().find(x=>x.id===p.p_device_id);if(!d)return reply({},403);
       if(op==='device_detail_v1')return reply(d);
