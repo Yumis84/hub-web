@@ -306,6 +306,7 @@
       page.append(notice("Подключённые сервисы","Интеграции используют текущую сессию Hub, RLS и права проектов. Секреты и ответы провайдеров в браузере не отображаются."));
       if(!byId("account")?.hidden){
         const g=sessionGeneration;
+        window.HubMcpConnections?.mount({container:page,request:tuyaRequest,isCurrent:()=>g===sessionGeneration&&!byId("account")?.hidden});
         window.HubDevices?.mount({container:page,request:tuyaRequest,isCurrent:()=>g===sessionGeneration&&!byId("account")?.hidden});
         renderTuyaServices();
       }
