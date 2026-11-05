@@ -104,3 +104,4 @@ body:has(#account:not([hidden])) .card>.brand,body:has(#account:not([hidden])) .
 .service-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
 .service-tabs button { min-height:44px; }
 .service-section[hidden], .service-summary[hidden], .cabinet-panel[hidden] { display:none; }
+.mcp-presets { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 240px),1fr)); gap:12px; }
