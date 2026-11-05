@@ -4,7 +4,7 @@
   const PREFIX='hub_preview_';
   const user={id:'00000000-0000-4000-8000-000000000001',email:'demo@preview.invalid'};
   let scenario=new URLSearchParams(location.search).get('scenario')||'empty';
-  const allowed=['empty','connected','forbidden','error','loading','invalid','expired','revoke-failed','offline','unauthorized','unavailable','nas-unconfirmed','mcp-malformed'];
+  const allowed=['empty','connected','forbidden','error','loading','invalid','expired','revoke-failed','offline','unauthorized','unavailable','nas-unconfirmed','mcp-malformed','mcp-no-digest'];
   if(!allowed.includes(scenario))scenario='empty';
   const reply=(data,status=200)=>Promise.resolve(new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}}));
   const token=(exp)=>'preview.'+btoa(JSON.stringify({sub:user.id,exp}))+'.not-a-signed-token';
@@ -31,8 +31,8 @@
     if(u.pathname.startsWith('/rest/v1/rpc/mcp_connection_')){
       const op=u.pathname.split('/').at(-1),p=JSON.parse(options.body||'{}');if(scenario==='error')return reply({},503);if(scenario==='forbidden')return reply({},403);
       if(op==='mcp_connection_list_v1')return reply({items:[...mcpConnections.values()].filter(x=>x.owner===user.id&&!x.revoked).map(({owner,...x})=>x)});
-      if(op==='mcp_connection_check_v1'){if(scenario==='mcp-malformed')return reply({status:'READY',check_id:'synthetic',tools:null});if(!/^https:\/\//.test(p.p_url)||/127\.0\.0\.1|10\.0\.0\.1/.test(p.p_url))return reply({},400);const r={check_id:crypto.randomUUID(),owner:user.id,name:p.p_name,url:p.p_url,auth:p.p_auth,status:p.p_auth==='oauth'?'AUTH_REQUIRED':'READY',oauth_available:false,tools:[{name:'read_public_docs',description:'Синтетическая возможность <img src=x onerror=alert(1)>',read_only_hint:true}]};mcpChecks.set(r.check_id,r);return reply(r);}
-      if(op==='mcp_connection_confirm_v1'){const c=mcpChecks.get(p.p_check_id);if(!c||c.owner!==user.id||c.status!=='READY'||p.p_read!==true)return reply({},403);if(!c.saved){c.saved=crypto.randomUUID();mcpConnections.set(c.saved,{...c,id:c.saved,last_checked_at:new Date().toISOString(),control:false});}return reply({id:c.saved});}
+      if(op==='mcp_connection_check_v1'){if(scenario==='mcp-malformed')return reply({status:'READY',check_id:'synthetic',tools:null});if(!/^https:\/\//.test(p.p_url)||/127\.0\.0\.1|10\.0\.0\.1/.test(p.p_url))return reply({},400);const r={check_id:crypto.randomUUID(),owner:user.id,name:p.p_name,url:p.p_url,auth:p.p_auth,status:p.p_auth==='oauth'?'AUTH_REQUIRED':'READY',oauth_available:false,digest:scenario==='mcp-no-digest'?null:'a'.repeat(64),tools:[{name:'read_public_docs',description:'Синтетическая возможность <img src=x onerror=alert(1)>',read_only_hint:true}]};mcpChecks.set(r.check_id,r);return reply(r);}
+      if(op==='mcp_connection_confirm_v1'){const c=mcpChecks.get(p.p_check_id);if(!c||c.owner!==user.id||c.status!=='READY'||p.p_expected_digest!==c.digest||p.p_read!==true)return reply({},403);if(!c.saved){c.saved=crypto.randomUUID();mcpConnections.set(c.saved,{...c,id:c.saved,last_checked_at:new Date().toISOString(),control:false});}return reply({id:c.saved});}
       const c=mcpConnections.get(p.p_connection_id);if(!c||c.owner!==user.id||c.revoked)return reply({},403);
       if(op==='mcp_connection_refresh_v1')return reply({status:c.status});
       if(op==='mcp_connection_revoke_v1'){if(scenario==='revoke-failed')return reply(false);c.revoked=true;return reply(true);}
@@ -106,4 +106,5 @@
   const help=document.querySelector('.helpBody');
   if(help)help.textContent='В предпросмотре подключения отключены. Проверяются только интерфейс и синтетические состояния.';
 })();
+
 
