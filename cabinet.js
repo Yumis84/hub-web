@@ -56,7 +56,7 @@
     }
     return response.status===204?null:response.json();
   }
-  function renderTuyaServices() {
+  function renderTuyaServices(container=page) {
     const card=node("section","cabinet-panel service-card");
     const heading=node("div","service-heading");
     const copy=node("div","");
@@ -73,7 +73,7 @@
     actions.append(connect,disconnect);
     const devices=node("div","service-devices");
     card.append(heading,message,actions,devices);
-    page.append(card);
+    container.append(card);
 
     let connection=null;
     const connectUrl=cfg.tuyaConnectUrl;
@@ -306,9 +306,37 @@
       page.append(notice("Подключённые сервисы","Интеграции используют текущую сессию Hub, RLS и права проектов. Секреты и ответы провайдеров в браузере не отображаются."));
       if(!byId("account")?.hidden){
         const g=sessionGeneration;
-        window.HubMcpConnections?.mount({container:page,request:tuyaRequest,isCurrent:()=>g===sessionGeneration&&!byId("account")?.hidden});
-        window.HubDevices?.mount({container:page,request:tuyaRequest,isCurrent:()=>g===sessionGeneration&&!byId("account")?.hidden});
-        renderTuyaServices();
+        const tabs=node("nav","service-tabs");
+        tabs.setAttribute("aria-label","Разделы сервисов");
+        const summary=node("section","service-summary");
+        summary.append(node("p","cabinet-muted","Подключения и устройства отображаются по данным доступных сервисов. Доступы и журнал станут доступны после подключения Broker."));
+        const connections=node("div","service-section");
+        const devices=node("div","service-section");
+        const computers=notice("Компьютеры","Подключение компьютеров и состояние локального агента пока недоступны. Установка на устройства не выполнялась.");
+        const access=notice("Доступы","Управление доступом других пользователей через Connection Broker пока недоступно. Новые разрешения здесь не выдаются.");
+        const audit=notice("Журнал действий","Журнал Connection Broker пока недоступен. Отсутствие записей не означает отсутствие действий.");
+        page.append(tabs,summary,connections,devices,computers,access,audit);
+        const choices=[
+          ["Обзор",[summary,connections,devices]],
+          ["Мои подключения",[connections]],
+          ["Мои устройства",[devices]],
+          ["Компьютеры",[computers]],
+          ["Доступы",[access]],
+          ["Журнал действий",[audit]]
+        ];
+        const panels=[summary,connections,devices,computers,access,audit];
+        for(const [label,visible] of choices){
+          const button=node("button","cabinet-tab",label);button.type="button";
+          button.addEventListener("click",()=>{
+            for(const panel of panels)panel.hidden=!visible.includes(panel);
+            for(const other of tabs.children){other.classList.toggle("selected",other===button);other.setAttribute("aria-pressed",String(other===button));}
+          });
+          tabs.append(button);
+        }
+        tabs.firstChild.click();
+        window.HubMcpConnections?.mount({container:connections,request:tuyaRequest,isCurrent:()=>g===sessionGeneration&&!byId("account")?.hidden});
+        window.HubDevices?.mount({container:devices,request:tuyaRequest,isCurrent:()=>g===sessionGeneration&&!byId("account")?.hidden});
+        renderTuyaServices(connections);
       }
     } else if (id==="settings") {
       page.append(notice("Настройки","Текущая подтверждённая сессия: "+(byId("userEmail")?.textContent||"—")+". Для смены аккаунта используйте «Выйти». Пароли сервисов здесь не хранятся."));
@@ -324,4 +352,5 @@
   const email=byId("userEmail");
   if(email) new MutationObserver(()=>{byId("cabinetAccountLabel").textContent=email.textContent;}).observe(email,{childList:true,subtree:true});
 })();
+
 

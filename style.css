@@ -100,3 +100,7 @@ body:has(#account:not([hidden])) .card>.brand,body:has(#account:not([hidden])) .
 .cabinet-data{margin:18px 0}.cabinet-data-list{display:grid;gap:12px}.cabinet-data-row{border-bottom:1px solid #e4eaf2;padding:12px 0;display:grid;gap:8px;overflow-wrap:anywhere}.cabinet-data-row .iot-button{justify-self:start}.cabinet-data>.iot-button{margin-top:14px}
 
 .mcp-connections{margin:22px 0}.mcp-form{display:grid;gap:12px}.mcp-form label{display:grid;gap:6px}.mcp-form input,.mcp-form select{min-width:0;width:100%;min-height:44px;box-sizing:border-box}.mcp-tools{max-height:32vh;overflow:auto;overflow-wrap:anywhere;padding-left:20px}.mcp-connections .iot-device p{overflow-wrap:anywhere}.iot-synology-guide li{margin-bottom:8px}
+
+.service-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.service-tabs button { min-height:44px; }
+.service-section[hidden], .service-summary[hidden], .cabinet-panel[hidden] { display:none; }
