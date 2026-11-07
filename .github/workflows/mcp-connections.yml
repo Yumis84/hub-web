@@ -1,0 +1,37 @@
+name: MCP Connections browser acceptance
+on:
+  pull_request:
+    paths:
+      - 'connections.js'
+      - 'cabinet.js'
+      - 'index.html'
+      - 'style.css'
+      - 'preview/**'
+      - 'tests/mcp-browser.cjs'
+      - '.github/workflows/mcp-connections.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/hub-web-browser --no-save --ignore-scripts playwright@1.56.1
+      - run: node --check connections.js && node preview/build.mjs
+      - run: timeout 120s node tests/mcp-browser.cjs
+        env:
+          HUB_PLAYWRIGHT_MODULE: /tmp/hub-web-browser/node_modules/playwright
+          HUB_CHROME: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-connections-preview
+          path: |
+            mcp-evidence/
+            preview-dist/
+          retention-days: 14
