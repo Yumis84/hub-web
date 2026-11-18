@@ -1,0 +1,22 @@
+name: OAuth session regression
+on:
+  pull_request:
+    paths:
+      - 'app.js'
+      - 'oauth/consent/**'
+      - 'tests/oauth-session.test.cjs'
+      - '.github/workflows/oauth-session-tests.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check app.js
+      - run: node --check oauth/consent/consent.js
+      - run: node --test tests/oauth-session.test.cjs
