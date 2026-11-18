@@ -11,7 +11,7 @@ else{
    $("#loginLink").href="../../?oauth_return="+encodeURIComponent(location.href);
  }else{
   try{
-   const{data:sd,error:se}=await sb.auth.setSession({access_token,refresh_token});if(se)throw se;if(sd?.session?.access_token){localStorage.hub_access_token=sd.session.access_token;if(sd.session.refresh_token)localStorage.hub_refresh_token=sd.session.refresh_token;}
+   const{data:sd,error:se}=await sb.auth.setSession({access_token,refresh_token});if(se||!sd?.session?.access_token){clearWebSession();$("#loading").hidden=true;$("#needLogin").hidden=false;$("#loginLink").href="../../?oauth_return="+encodeURIComponent(location.href);throw new Error("HUB_SESSION_INVALID");}else{localStorage.hub_access_token=sd.session.access_token;if(sd.session.refresh_token)localStorage.hub_refresh_token=sd.session.refresh_token;}
    const currentUser=sd?.session?.user||sd?.user;
    $("#currentUser").textContent=currentUser?.email||"Неизвестный пользователь";
    const{data,error}=await sb.auth.oauth.getAuthorizationDetails(id);if(error)throw error;
@@ -25,7 +25,7 @@ else{
    $("#switchAccount").onclick=async()=>{try{await sb.auth.signOut({scope:"local"})}catch{}clearWebSession();location.assign("../../?oauth_return="+encodeURIComponent(location.href))};
    $("#deny").onclick=async()=>{try{$("#deny").disabled=true;const{data,error}=await sb.auth.oauth.denyAuthorization(id);if(error)throw error;location.assign(data.redirect_url)}catch(e){fail(e.message)}};
   }catch(e){
-   if(/session|token|jwt|auth/i.test(e.message||"")){clearWebSession();$("#loading").hidden=true;$("#needLogin").hidden=false;$("#loginLink").href="../../?oauth_return="+encodeURIComponent(location.href)}
+   if(e.message==="HUB_SESSION_INVALID"){/* Invalid Hub session: login link already prepared. */}
    else fail(e.message||String(e));
   }
  }
