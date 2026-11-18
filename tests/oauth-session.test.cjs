@@ -86,23 +86,39 @@ test('valid refreshed Hub session returns to exact same-origin consent URL', asy
   assert.equal(store.getItem('hub_refresh_token'), 'new-refresh');
 });
 
-async function runConsent({ setSession, details, stored = true }) {
+async function runConsent({ setSession, details, stored = true, bindError = null }) {
   const $ = elements();
   const store = storage(stored ? { hub_access_token: 'a', hub_refresh_token: 'r' } : {});
   const target = 'https://ai-agent-hub.fun/oauth/consent/?authorization_id=auth-123';
-  const location = { href: target, search: '?authorization_id=auth-123', assign() {}, replace() {} };
+  const calls = [];
+  const location = {
+    href: target, search: '?authorization_id=auth-123',
+    assign: url => calls.push(['assign', url]),
+    replace: url => calls.push(['replace', url]),
+  };
   let detailsCalls = 0;
   const sb = { auth: {
     setSession: async () => setSession,
-    oauth: { getAuthorizationDetails: async () => { detailsCalls++; return details; } },
-  } };
+    oauth: {
+      getAuthorizationDetails: async () => { detailsCalls++; return details; },
+      approveAuthorization: async id => {
+        calls.push(['approve', id]);
+        return { data: { redirect_url: callback } };
+      },
+    },
+  }, schema: schema => ({
+    rpc: async (name, args) => {
+      calls.push([schema, name, args.p_authorization_id]);
+      return { error: bindError };
+    },
+  }) };
   const code = consent.replace(/^import\{createClient\}from[^;]+;/, '');
   await vm.runInNewContext('(async()=>{' + code + '})()', {
     window: { HUB_CONFIG: { supabaseUrl: 'https://example.supabase.co', supabasePublishableKey: 'public' } },
     document: { querySelector: $ }, location, localStorage: store,
     createClient: () => sb, URLSearchParams, URL, encodeURIComponent,
   });
-  return { $, store, detailsCalls, target };
+  return { $, store, detailsCalls, target, calls };
 }
 
 test('consent restores an existing Hub session and requests authorization details', async () => {
@@ -119,7 +135,7 @@ test('consent restores an existing Hub session and requests authorization detail
 test('consent missing/invalid session offers login while preserving authorization_id', async () => {
   for (const input of [
     { stored: false },
-    { stored: true, setSession: { data: null, error: { message: 'refresh rejected' } } },
+    { stored: true, setSession: { data: null, error: { status: 400, code: 'refresh_token_not_found', message: 'refresh rejected' } } },
   ]) {
     const r = await runConsent(input);
     assert.equal(r.$('#needLogin').hidden, false);
@@ -136,4 +152,78 @@ test('OAuth authorization errors are not misclassified as a missing Hub session'
   assert.equal(r.$('#needLogin').hidden, true);
   assert.equal(r.$('#error').textContent, 'authorization_id expired or invalid');
   assert.equal(r.store.getItem('hub_access_token'), 'valid-a');
+  assert.equal(r.store.getItem('hub_refresh_token'), 'valid-r');
+  assert.deepEqual(r.calls, []);
+});
+
+test('transient Hub Auth error preserves existing browser credentials', async () => {
+  const r = await runConsent({
+    setSession: { data: null, error: { status: 503, message: 'Auth temporarily unavailable' } },
+  });
+  assert.equal(r.store.getItem('hub_access_token'), 'a');
+  assert.equal(r.store.getItem('hub_refresh_token'), 'r');
+  assert.equal(r.$('#needLogin').hidden, true);
+  assert.match(r.$('#error').textContent, /temporarily unavailable/);
+});
+
+
+const callback = 'https://client.example.test/callback?code=fixture-code&state=original%2Bstate';
+const validSession = {
+  data: { session: { access_token: 'a', refresh_token: 'r', user: { email: 'hub@example.test' } } },
+};
+
+test('approval binds the original authorization before forwarding the unchanged callback', async () => {
+  const r = await runConsent({ setSession: validSession, details: { data: { authorization_id: 'auth-123' } } });
+  await r.$('#approve').onclick();
+  assert.deepEqual(r.calls, [
+    ['app', 'bind_oauth_authorization', 'auth-123'],
+    ['approve', 'auth-123'],
+    ['replace', callback],
+  ]);
+});
+
+test('binding failure stops approval and preserves the web session', async () => {
+  const r = await runConsent({
+    setSession: validSession,
+    details: { data: { authorization_id: 'auth-123' } },
+    bindError: { message: 'Connection binding failed' },
+  });
+  await r.$('#approve').onclick();
+  assert.deepEqual(r.calls, [['app', 'bind_oauth_authorization', 'auth-123']]);
+  assert.equal(r.$('#error').textContent, 'Connection binding failed');
+  assert.equal(r.store.getItem('hub_refresh_token'), 'r');
+});
+
+test('prior consent forwards the callback without a second explicit binding', async () => {
+  const r = await runConsent({ setSession: validSession, details: { data: { redirect_url: callback } } });
+  assert.deepEqual(r.calls, [['assign', callback]]);
+  assert.equal(r.$('#consent').hidden, true);
+});
+
+test('password re-login persists the web session and returns to the original consent URL', async () => {
+  const $ = elements();
+  const store = storage();
+  const origin = 'https://ai-agent-hub.fun';
+  const target = origin + '/oauth/consent/?authorization_id=opaque%2Brequest';
+  const search = '?oauth_return=' + encodeURIComponent(target);
+  const redirects = [];
+  const location = { origin, href: origin + '/' + search, pathname: '/', search, assign: u => redirects.push(u) };
+  vm.runInNewContext(app, {
+    window: { HUB_CONFIG: { supabaseUrl: 'https://example.supabase.co', supabasePublishableKey: 'public', mode: 'production' } },
+    document: { querySelector: $ }, location, localStorage: store,
+    history: { replaceState() { location.search = ''; } },
+    fetch: async url => {
+      assert.equal(url, 'https://example.supabase.co/auth/v1/token?grant_type=password');
+      return { ok: true, json: async () => ({ ...validSession.data.session }) };
+    },
+    URL, URLSearchParams, JSON, Date, atob, setTimeout,
+  });
+  await flush();
+  assert.deepEqual(redirects, []);
+  $('#email').value = 'hub@example.test';
+  $('#password').value = 'fixture-password';
+  await $('#form').onsubmit({ preventDefault() {} });
+  assert.deepEqual(redirects, [target]);
+  assert.equal(store.getItem('hub_access_token'), 'a');
+  assert.equal(store.getItem('hub_refresh_token'), 'r');
 });
